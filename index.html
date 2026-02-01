@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク管理 - ポモドーロタイマー</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <h1>タスク管理</h1>
+        </header>
+
+        <main class="main">
+            <section class="timer-section">
+                <div class="timer-container">
+                    <svg class="timer-svg" viewBox="0 0 200 200">
+                        <circle class="timer-bg" cx="100" cy="100" r="90"></circle>
+                        <circle class="timer-progress" cx="100" cy="100" r="90" id="timerProgress"></circle>
+                    </svg>
+                    <div class="timer-display">
+                        <span id="timerMinutes">25</span>:<span id="timerSeconds">00</span>
+                    </div>
+                </div>
+
+                <div class="timer-controls">
+                    <button class="btn btn-primary" id="startBtn">開始</button>
+                    <button class="btn btn-secondary" id="pauseBtn" disabled>一時停止</button>
+                    <button class="btn btn-danger" id="resetBtn">リセット</button>
+                </div>
+
+                <div class="timer-modes">
+                    <button class="mode-btn active" data-minutes="25">作業 (25分)</button>
+                    <button class="mode-btn" data-minutes="5">短い休憩 (5分)</button>
+                    <button class="mode-btn" data-minutes="15">長い休憩 (15分)</button>
+                </div>
+
+                <div class="custom-time">
+                    <label for="customMinutes">カスタム時間:</label>
+                    <input type="number" id="customMinutes" min="1" max="120" value="25" class="custom-time-input">
+                    <span>分</span>
+                    <button class="btn btn-small" id="setCustomTimeBtn">設定</button>
+                </div>
+
+                <div class="current-task" id="currentTask">
+                    <p>タスクを選択してください</p>
+                </div>
+            </section>
+
+            <section class="tasks-section">
+                <div class="task-input-container">
+                    <input type="text" id="taskInput" placeholder="新しいタスクを入力..." class="task-input">
+                    <button class="btn btn-primary" id="addTaskBtn">追加</button>
+                </div>
+
+                <ul class="task-list" id="taskList">
+                </ul>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
