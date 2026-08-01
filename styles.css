@@ -24,7 +24,7 @@
 }
 
 body {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: var(--bg-color);
     color: var(--text-color);
     min-height: 100vh;
@@ -46,7 +46,7 @@ body {
 }
 
 .header h1 {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 2.1rem;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -127,7 +127,7 @@ body {
 }
 
 .date-label {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 1.2rem;
     font-weight: 600;
     margin-bottom: 8px;
@@ -165,7 +165,7 @@ body {
 }
 
 .progress-value {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 1.9rem;
     font-weight: 700;
     color: var(--primary-color);
@@ -247,13 +247,13 @@ body {
 }
 
 .session-title h3 {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 1.05rem;
     font-weight: 600;
 }
 
 .session-minutes {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     font-weight: 400;
     color: var(--text-muted);
     font-size: 0.85rem;
@@ -535,7 +535,7 @@ body {
 
 .notebook-page-card h3,
 .quiz-card h3 {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 1.05rem;
     font-weight: 600;
     margin-bottom: 14px;
@@ -647,7 +647,7 @@ body {
 }
 
 .stat-value {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 1.6rem;
     font-weight: 700;
     color: var(--primary-color);
@@ -662,7 +662,7 @@ body {
 /* Heatmap */
 .heatmap-card h3,
 .history-card h3 {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 1.05rem;
     font-weight: 600;
     margin-bottom: 14px;
@@ -717,7 +717,7 @@ body {
 
 /* Backup / restore */
 .backup-card h3 {
-    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 1.05rem;
     font-weight: 600;
     margin-bottom: 10px;
