@@ -14,7 +14,7 @@ const BLOCK_CONFIG = {
         subtitle: 'Pronunciation warm-up & sound training',
         minutes: 15,
         logoUrl: 'eigomimi-logo.png',
-        logoLabel: '発音練習'
+        logoLabel: 'Pronunciation Practice'
     },
     studysapuri: {
         title: 'Studysapuri Business',

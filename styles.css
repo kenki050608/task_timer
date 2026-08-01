@@ -290,8 +290,9 @@ body {
 }
 
 .session-logo-custom {
-    height: 40px;
+    height: 44px;
     width: auto;
+    max-width: 100%;
     border: none;
     background: transparent;
     padding: 0;
