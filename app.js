@@ -14,28 +14,28 @@ const BLOCK_CONFIG = {
         subtitle: 'Pronunciation warm-up & sound training',
         minutes: 15,
         logoUrl: 'eigomimi-logo.png',
-        logoLabel: 'Pronunciation Practice'
+        logoLabel: 'Pronunciation'
     },
     studysapuri: {
         title: 'Studysapuri Business',
         subtitle: 'Input, dictation & vocabulary/idiom logging',
         minutes: 45,
         logoUrl: 'studysapuri-logo.png',
-        logoLabel: 'Input & Dictation'
+        logoLabel: 'Input'
     },
     shadowing: {
         title: 'Shadowing',
         subtitle: 'Overlap Eigo Mimi’s sound patterns onto Studysapuri audio',
         minutes: 30,
         logoUrl: 'studysapuri-logo.png',
-        logoLabel: 'Shadowing Practice'
+        logoLabel: 'Shadowing'
     },
     speak: {
         title: 'Speak',
         subtitle: 'Put your vocabulary & idioms into practice via AI conversation',
         minutes: 30,
         logoUrl: 'speak-logo.png',
-        logoLabel: 'AI Conversation Practice'
+        logoLabel: 'Speaking'
     }
 };
 
@@ -66,7 +66,7 @@ const minutesTodayLabel = document.getElementById('minutesTodayLabel');
 const sessionsCompletedLabel = document.getElementById('sessionsCompletedLabel');
 const progressBarFill = document.getElementById('progressBarFill');
 const sessionList = document.getElementById('sessionList');
-const notebookPage = document.getElementById('notebookPage');
+const notebookPages = { vocab: document.getElementById('vocabPage'), idioms: document.getElementById('idiomsPage') };
 const statsGrid = document.getElementById('statsGrid');
 const heatmap = document.getElementById('heatmap');
 const historyTableBody = document.getElementById('historyTableBody');
@@ -171,8 +171,11 @@ function formatMinutesValue(minutes) {
 function calcBlockSeconds(log, blockKey) {
     const total = BLOCK_CONFIG[blockKey].minutes * 60;
     const block = log.blocks[blockKey];
-    if (block.done) return total;
-    return Math.min(total, block.secondsSpent || 0);
+    const spent = block.secondsSpent || 0;
+    // Once done, credit at least the full block duration, but don't cap it there —
+    // studying beyond the nominal time (e.g. running Eigo Mimi again after finishing
+    // it) should still count the extra time toward the day's and cumulative totals.
+    return block.done ? Math.max(total, spent) : spent;
 }
 
 function calcMinutes(log) {
@@ -244,7 +247,7 @@ function bankProgress(blockKey) {
     timer.lastBankRemaining = timer.remaining;
     const log = ensureLog(getDateKey(currentDate));
     const block = log.blocks[blockKey];
-    const newSeconds = Math.min(timer.total, (block.secondsSpent || 0) + delta);
+    const newSeconds = (block.secondsSpent || 0) + delta;
     block.secondsSpent = newSeconds;
     if (newSeconds >= timer.total) block.done = true;
     saveState();
@@ -380,18 +383,24 @@ function pauseBlockTimer(blockKey) {
 }
 
 function resetBlockTimer(blockKey) {
+    // Reset is a deliberate wipe: unlike pausing or closing the app (which bank
+    // whatever time has elapsed so far), pressing Reset discards this block's
+    // recorded time for the day entirely, clearing it from the day's total and
+    // history too.
     const timer = timers[blockKey];
-    if (timer.running) {
-        timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
-    }
     clearInterval(timer.interval);
     timer.interval = null;
     timer.running = false;
     timer.endTime = null;
-    bankProgress(blockKey);
     timer.remaining = timer.total;
     timer.lastBankRemaining = timer.total;
     persistTimers();
+
+    const log = ensureLog(getDateKey(currentDate));
+    log.blocks[blockKey].secondsSpent = 0;
+    log.blocks[blockKey].done = false;
+    saveState();
+
     renderToday();
 }
 
@@ -406,7 +415,7 @@ function completeBlockTimer(blockKey) {
     persistTimers();
 
     const log = ensureLog(getDateKey(currentDate));
-    log.blocks[blockKey].secondsSpent = timer.total;
+    log.blocks[blockKey].secondsSpent = Math.max(timer.total, log.blocks[blockKey].secondsSpent || 0);
     log.blocks[blockKey].done = true;
     saveState();
 
@@ -486,14 +495,14 @@ function addNotebookEntry(type, term, note) {
     const entry = { id: makeId(), term: trimmedTerm, note: (note || '').trim(), dateKey: getDateKey(new Date()), used: false };
     state[type].push(entry);
     saveState();
-    renderNotebookPage();
+    renderNotebookPages();
     renderToday();
 }
 
 function deleteNotebookEntry(type, id) {
     state[type] = state[type].filter(entry => entry.id !== id);
     saveState();
-    renderNotebookPage();
+    renderNotebookPages();
     renderToday();
     if (currentTab === 'cumulative') renderCumulative();
 }
@@ -517,7 +526,7 @@ function toggleReviewDay(checked) {
     }
     saveState();
     renderToday();
-    if (currentTab === 'notebooks') renderNotebookPage();
+    if (currentTab === 'vocab' || currentTab === 'idioms') renderNotebookPages();
 }
 
 function toggleReviewCheck(entryKey, checked) {
@@ -525,7 +534,7 @@ function toggleReviewCheck(entryKey, checked) {
     const log = ensureLog(dateKey);
     log.reviewChecks[entryKey] = checked;
     saveState();
-    renderNotebookPage();
+    renderNotebookPages();
 }
 
 function changeDate(delta) {
@@ -691,8 +700,10 @@ function renderNotebookCard(type) {
         </div>`;
 }
 
-function renderNotebookPage() {
-    notebookPage.innerHTML = NOTEBOOK_TYPES.map(renderNotebookCard).join('');
+function renderNotebookPages() {
+    NOTEBOOK_TYPES.forEach(type => {
+        notebookPages[type].innerHTML = renderNotebookCard(type);
+    });
 }
 
 // ---- Rendering: Cumulative view -----------------------------------------
@@ -845,7 +856,7 @@ function importData(file) {
         saveState();
         initTimersForDate();
         renderToday();
-        renderNotebookPage();
+        renderNotebookPages();
         renderCumulative();
         alert('Data imported successfully.');
     };
@@ -855,11 +866,34 @@ function importData(file) {
 // ---- Event wiring --------------------------------------------------------
 
 function submitNotebookEntry(type) {
-    const block = notebookPage.querySelector(`.notebook-page-card[data-type="${type}"]`);
+    const block = notebookPages[type].querySelector(`.notebook-page-card[data-type="${type}"]`);
     if (!block) return;
     const termInput = block.querySelector('.notebook-term-input');
     const noteInput = block.querySelector('.notebook-note-input');
     addNotebookEntry(type, termInput.value, noteInput.value);
+}
+
+function wireNotebookContainer(container) {
+    container.addEventListener('click', (e) => {
+        const addBtn = e.target.closest('.notebook-add-btn');
+        if (addBtn) { submitNotebookEntry(addBtn.dataset.type); return; }
+        const delBtn = e.target.closest('.notebook-delete');
+        if (delBtn) { deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id); return; }
+    });
+
+    container.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const input = e.target.closest('.notebook-term-input, .notebook-note-input');
+        if (!input) return;
+        e.preventDefault();
+        submitNotebookEntry(input.dataset.type);
+    });
+
+    container.addEventListener('change', (e) => {
+        if (e.target.classList.contains('review-check-input')) {
+            toggleReviewCheck(e.target.dataset.key, e.target.checked);
+        }
+    });
 }
 
 function setupEventListeners() {
@@ -869,7 +903,7 @@ function setupEventListeners() {
             tabBtns.forEach(b => b.classList.toggle('active', b === btn));
             views.forEach(v => v.classList.toggle('active', v.id === `${currentTab}View`));
             if (currentTab === 'today') renderToday();
-            if (currentTab === 'notebooks') renderNotebookPage();
+            if (currentTab === 'vocab' || currentTab === 'idioms') renderNotebookPages();
             if (currentTab === 'cumulative') renderCumulative();
         });
     });
@@ -896,26 +930,8 @@ function setupEventListeners() {
         }
     });
 
-    notebookPage.addEventListener('click', (e) => {
-        const addBtn = e.target.closest('.notebook-add-btn');
-        if (addBtn) { submitNotebookEntry(addBtn.dataset.type); return; }
-        const delBtn = e.target.closest('.notebook-delete');
-        if (delBtn) { deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id); return; }
-    });
-
-    notebookPage.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter') return;
-        const input = e.target.closest('.notebook-term-input, .notebook-note-input');
-        if (!input) return;
-        e.preventDefault();
-        submitNotebookEntry(input.dataset.type);
-    });
-
-    notebookPage.addEventListener('change', (e) => {
-        if (e.target.classList.contains('review-check-input')) {
-            toggleReviewCheck(e.target.dataset.key, e.target.checked);
-        }
-    });
+    wireNotebookContainer(notebookPages.vocab);
+    wireNotebookContainer(notebookPages.idioms);
 
     exportBtn.addEventListener('click', exportData);
     importBtn.addEventListener('click', () => importFileInput.click());
