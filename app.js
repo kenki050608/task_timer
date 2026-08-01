@@ -61,7 +61,6 @@ const views = document.querySelectorAll('.view');
 const prevDayBtn = document.getElementById('prevDayBtn');
 const nextDayBtn = document.getElementById('nextDayBtn');
 const currentDateLabel = document.getElementById('currentDateLabel');
-const reviewDayToggle = document.getElementById('reviewDayToggle');
 const minutesTodayLabel = document.getElementById('minutesTodayLabel');
 const sessionsCompletedLabel = document.getElementById('sessionsCompletedLabel');
 const progressBarFill = document.getElementById('progressBarFill');
@@ -97,11 +96,7 @@ function saveState() {
 function defaultLog() {
     const blocks = {};
     BLOCK_ORDER.forEach(key => { blocks[key] = { done: false, secondsSpent: 0 }; });
-    return {
-        blocks,
-        isReviewDay: false,
-        reviewChecks: {}
-    };
+    return { blocks };
 }
 
 function getLogOrDefault(dateKey) {
@@ -144,10 +139,6 @@ function getMonday(date) {
     return d;
 }
 
-function getWeekKey(date) {
-    return getDateKey(getMonday(date));
-}
-
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -188,19 +179,6 @@ function calcSessionsCompleted(log) {
 
 function getDayEntries(dateKey, type) {
     return (state[type] || []).filter(entry => entry.dateKey === dateKey);
-}
-
-function getWeekEntries(weekKey) {
-    const entries = [];
-    NOTEBOOK_TYPES.forEach(type => {
-        (state[type] || []).forEach(entry => {
-            if (getWeekKey(dateFromKey(entry.dateKey)) === weekKey) {
-                entries.push({ ...entry, type });
-            }
-        });
-    });
-    entries.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
-    return entries;
 }
 
 function escapeHtml(text) {
@@ -513,30 +491,6 @@ function toggleNotebookUsed(type, id, checked) {
     saveState();
 }
 
-function toggleReviewDay(checked) {
-    const dateKey = getDateKey(currentDate);
-    const log = ensureLog(dateKey);
-    log.isReviewDay = checked;
-    if (checked) {
-        const weekEntries = getWeekEntries(getWeekKey(currentDate));
-        weekEntries.forEach(entry => {
-            const key = `${entry.type}:${entry.id}`;
-            if (!(key in log.reviewChecks)) log.reviewChecks[key] = false;
-        });
-    }
-    saveState();
-    renderToday();
-    if (currentTab === 'vocab' || currentTab === 'idioms') renderNotebookPages();
-}
-
-function toggleReviewCheck(entryKey, checked) {
-    const dateKey = getDateKey(new Date());
-    const log = ensureLog(dateKey);
-    log.reviewChecks[entryKey] = checked;
-    saveState();
-    renderNotebookPages();
-}
-
 function changeDate(delta) {
     const next = new Date(currentDate);
     next.setDate(next.getDate() + delta);
@@ -549,12 +503,7 @@ function changeDate(delta) {
 
 // ---- Rendering: Today view ----------------------------------------------
 
-function buildSpeakExtra(log, isReview) {
-    if (isReview) {
-        const weekEntries = getWeekEntries(getWeekKey(currentDate));
-        const checkedCount = weekEntries.filter(e => log.reviewChecks[`${e.type}:${e.id}`]).length;
-        return `<div class="extra-block"><p class="extra-label">🔁 Review day: retest this week's vocabulary & idioms in conversation (${checkedCount}/${weekEntries.length})</p></div>`;
-    }
+function buildSpeakExtra() {
     const dateKey = getDateKey(currentDate);
     const entries = [
         ...getDayEntries(dateKey, 'vocab').map(e => ({ ...e, type: 'vocab' })),
@@ -578,13 +527,13 @@ function buildSpeakExtra(log, isReview) {
         </div>`;
 }
 
-function renderSessionCard(blockKey, log, isReview) {
+function renderSessionCard(blockKey, log) {
     const cfg = BLOCK_CONFIG[blockKey];
     const done = log.blocks[blockKey].done;
     const index = BLOCK_ORDER.indexOf(blockKey) + 1;
 
-    const extraHtml = blockKey === 'speak' ? buildSpeakExtra(log, isReview) : '';
-    const subtitle = (isReview && blockKey === 'studysapuri') ? 'Vocabulary & idiom review' : cfg.subtitle;
+    const extraHtml = blockKey === 'speak' ? buildSpeakExtra() : '';
+    const subtitle = cfg.subtitle;
     const logoClass = cfg.logoLabel ? 'session-logo session-logo-custom' : 'session-logo';
     const titleHtml = cfg.logoUrl
         ? `<img src="${escapeAttr(cfg.logoUrl)}" alt="${escapeAttr(cfg.title)}" title="${escapeAttr(cfg.title)}" class="${logoClass}" onerror="handleLogoError(this)">${cfg.logoLabel ? ` ${escapeHtml(cfg.logoLabel)}` : ''}`
@@ -633,12 +582,11 @@ function renderToday() {
     const isToday = dateKey === getDateKey(today);
 
     currentDateLabel.textContent = formatDateLabel(currentDate) + (isToday ? ' (Today)' : '');
-    reviewDayToggle.checked = log.isReviewDay;
     nextDayBtn.disabled = currentDate >= today;
 
     updateProgressSummaryDisplay();
 
-    sessionList.innerHTML = BLOCK_ORDER.map(key => renderSessionCard(key, log, log.isReviewDay)).join('');
+    sessionList.innerHTML = BLOCK_ORDER.map(key => renderSessionCard(key, log)).join('');
 
     syncAllTimerDisplays();
 }
@@ -656,32 +604,6 @@ function renderNotebookListItem(entry, type, { showDate } = {}) {
 
 function renderNotebookCard(type) {
     const cfg = NOTEBOOK_CONFIG[type];
-    const todayKey = getDateKey(new Date());
-    const todayLog = getLogOrDefault(todayKey);
-
-    let reviewHtml = '';
-    if (todayLog.isReviewDay) {
-        const weekEntries = getWeekEntries(getWeekKey(new Date())).filter(e => e.type === type);
-        if (weekEntries.length > 0) {
-            const checkedCount = weekEntries.filter(e => todayLog.reviewChecks[`${e.type}:${e.id}`]).length;
-            reviewHtml = `
-                <div class="notebook-review">
-                    <p class="extra-label review-label">🔁 Weekly review (${checkedCount}/${weekEntries.length})</p>
-                    <ul class="review-phrase-list">
-                        ${weekEntries.map(e => {
-                            const key = `${e.type}:${e.id}`;
-                            return `
-                            <li>
-                                <label class="review-check">
-                                    <input type="checkbox" class="review-check-input" data-key="${escapeAttr(key)}" ${todayLog.reviewChecks[key] ? 'checked' : ''}>
-                                    <span>${escapeHtml(e.term)}${e.note ? ` — ${escapeHtml(e.note)}` : ''}</span>
-                                </label>
-                            </li>`;
-                        }).join('')}
-                    </ul>
-                </div>`;
-        }
-    }
 
     const allEntries = [...(state[type] || [])].sort((a, b) => b.dateKey.localeCompare(a.dateKey));
     const listHtml = allEntries.length === 0
@@ -696,7 +618,6 @@ function renderNotebookCard(type) {
                 <input type="text" class="phrase-input notebook-note-input" data-type="${type}" placeholder="${cfg.notePlaceholder}">
                 <button class="btn-small btn-primary notebook-add-btn" data-type="${type}">Add</button>
             </div>
-            ${reviewHtml}
             <div class="notebook-list-wrap">
                 ${listHtml}
             </div>
@@ -753,7 +674,6 @@ function renderStatsGrid() {
     const daysStudied = allLogs.filter(isLogStudied).length;
     const totalMinutes = allLogs.reduce((sum, log) => sum + calcMinutes(log), 0);
     const totalHours = (totalMinutes / 60).toFixed(1);
-    const reviewDays = allLogs.filter(log => log.isReviewDay).length;
 
     const stats = [
         { icon: '🔥', value: computeCurrentStreak(), label: 'Current Streak' },
@@ -761,8 +681,7 @@ function renderStatsGrid() {
         { icon: '📚', value: daysStudied, label: 'Total Study Days' },
         { icon: '⏱️', value: `${totalHours}h`, label: 'Total Study Time' },
         { icon: '📕', value: (state.vocab || []).length, label: 'Vocabulary Logged' },
-        { icon: '📗', value: (state.idioms || []).length, label: 'Idioms Logged' },
-        { icon: '🔁', value: reviewDays, label: 'Review Days Completed' }
+        { icon: '📗', value: (state.idioms || []).length, label: 'Idioms Logged' }
     ];
 
     statsGrid.innerHTML = stats.map(s => `
@@ -799,7 +718,7 @@ function renderHeatmap() {
 function renderHistoryTable() {
     const sortedKeys = Object.keys(state.logs).sort().reverse();
     if (sortedKeys.length === 0) {
-        historyTableBody.innerHTML = `<tr><td colspan="5" class="empty-note">No records yet</td></tr>`;
+        historyTableBody.innerHTML = `<tr><td colspan="4" class="empty-note">No records yet</td></tr>`;
         return;
     }
     historyTableBody.innerHTML = sortedKeys.slice(0, 60).map(dateKey => {
@@ -813,7 +732,6 @@ function renderHistoryTable() {
                 <td>${completed} / 4</td>
                 <td>${formatMinutesValue(minutes)} min</td>
                 <td>${wordCount}</td>
-                <td>${log.isReviewDay ? '✓' : '-'}</td>
             </tr>`;
     }).join('');
 }
@@ -891,12 +809,6 @@ function wireNotebookContainer(container) {
         e.preventDefault();
         submitNotebookEntry(input.dataset.type);
     });
-
-    container.addEventListener('change', (e) => {
-        if (e.target.classList.contains('review-check-input')) {
-            toggleReviewCheck(e.target.dataset.key, e.target.checked);
-        }
-    });
 }
 
 function setupEventListeners() {
@@ -913,8 +825,6 @@ function setupEventListeners() {
 
     prevDayBtn.addEventListener('click', () => changeDate(-1));
     nextDayBtn.addEventListener('click', () => changeDate(1));
-
-    reviewDayToggle.addEventListener('change', (e) => toggleReviewDay(e.target.checked));
 
     sessionList.addEventListener('click', (e) => {
         const startBtn = e.target.closest('.timer-start');

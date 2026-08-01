@@ -157,20 +157,6 @@ body {
     cursor: not-allowed;
 }
 
-.review-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    cursor: pointer;
-}
-
-.review-toggle input:checked + span {
-    color: var(--review-color);
-    font-weight: 600;
-}
-
 /* Progress Summary */
 .progress-summary-top {
     display: flex;
@@ -213,10 +199,6 @@ body {
 }
 
 /* Session cards */
-.review-label {
-    color: var(--review-color);
-}
-
 .session-list {
     display: flex;
     flex-direction: column;
@@ -441,7 +423,7 @@ body {
     color: #fff8f4;
 }
 
-/* Extra blocks (phrases / review) */
+/* Extra blocks */
 .extra-block {
     margin-top: 16px;
     padding-top: 14px;
@@ -560,12 +542,6 @@ body {
     margin-bottom: 14px;
 }
 
-.notebook-review {
-    margin: 14px 0;
-    padding-top: 14px;
-    border-top: 1px dashed var(--border-color);
-}
-
 .notebook-list-wrap {
     margin-top: 14px;
     padding-top: 14px;
@@ -581,7 +557,6 @@ body {
     gap: 6px;
 }
 
-.review-phrase-list,
 .speak-phrase-list {
     list-style: none;
     display: flex;
@@ -603,10 +578,6 @@ body {
     cursor: pointer;
     flex-shrink: 0;
     accent-color: var(--review-color);
-}
-
-.review-block .extra-label {
-    color: var(--review-color);
 }
 
 .empty-note {
