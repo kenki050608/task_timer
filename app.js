@@ -34,7 +34,8 @@ const BLOCK_CONFIG = {
         title: 'Speak',
         subtitle: 'Put your vocabulary & idioms into practice via AI conversation',
         minutes: 30,
-        logoUrl: 'https://icons.duckduckgo.com/ip3/speak.com.ico'
+        logoUrl: 'speak-logo.png',
+        logoLabel: 'AI Conversation Practice'
     }
 };
 
