@@ -620,6 +620,11 @@ function init() {
     if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission();
     }
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        });
+    }
     initTimersForDate();
     setupEventListeners();
     renderToday();
