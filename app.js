@@ -58,6 +58,7 @@ const minutesTodayLabel = document.getElementById('minutesTodayLabel');
 const sessionsCompletedLabel = document.getElementById('sessionsCompletedLabel');
 const progressBarFill = document.getElementById('progressBarFill');
 const sessionList = document.getElementById('sessionList');
+const notebookTodaySection = document.getElementById('notebookTodaySection');
 const statsGrid = document.getElementById('statsGrid');
 const heatmap = document.getElementById('heatmap');
 const historyTableBody = document.getElementById('historyTableBody');
@@ -460,37 +461,18 @@ function renderNotebookListItem(entry, type) {
         </li>`;
 }
 
-function renderNotebookBlock(type) {
+function renderNotebookCard(type, log, isReview) {
     const cfg = NOTEBOOK_CONFIG[type];
-    const entries = getDayEntries(getDateKey(currentDate), type);
-    const listHtml = entries.length === 0
-        ? `<p class="empty-note">No entries added yet today.</p>`
-        : `<ul class="notebook-list">${entries.map(e => renderNotebookListItem(e, type)).join('')}</ul>`;
+    let bodyHtml;
 
-    return `
-        <div class="extra-block">
-            <div class="notebook-block" data-type="${type}">
-                <p class="extra-label">${cfg.icon} ${cfg.label}</p>
-                <div class="notebook-add-row">
-                    <input type="text" class="phrase-input notebook-term-input" data-type="${type}" placeholder="${cfg.termPlaceholder}">
-                    <input type="text" class="phrase-input notebook-note-input" data-type="${type}" placeholder="${cfg.notePlaceholder}">
-                    <button class="btn-small btn-primary notebook-add-btn" data-type="${type}">Add</button>
-                </div>
-                ${listHtml}
-            </div>
-        </div>`;
-}
-
-function buildStudysapuriExtra(log, isReview) {
     if (isReview) {
-        const weekEntries = getWeekEntries(getWeekKey(currentDate));
+        const weekEntries = getWeekEntries(getWeekKey(currentDate)).filter(e => e.type === type);
         if (weekEntries.length === 0) {
-            return `<div class="extra-block"><p class="empty-note">No vocabulary or idioms logged yet this week.</p></div>`;
-        }
-        const checkedCount = weekEntries.filter(e => log.reviewChecks[`${e.type}:${e.id}`]).length;
-        return `
-            <div class="extra-block review-block">
-                <p class="extra-label">📘 Weekly review (${checkedCount}/${weekEntries.length})</p>
+            bodyHtml = `<p class="empty-note">Nothing logged yet this week.</p>`;
+        } else {
+            const checkedCount = weekEntries.filter(e => log.reviewChecks[`${e.type}:${e.id}`]).length;
+            bodyHtml = `
+                <p class="extra-label review-label">🔁 Weekly review (${checkedCount}/${weekEntries.length})</p>
                 <ul class="review-phrase-list">
                     ${weekEntries.map(e => {
                         const key = `${e.type}:${e.id}`;
@@ -498,14 +480,35 @@ function buildStudysapuriExtra(log, isReview) {
                         <li>
                             <label class="review-check">
                                 <input type="checkbox" class="review-check-input" data-key="${escapeAttr(key)}" ${log.reviewChecks[key] ? 'checked' : ''}>
-                                <span>${NOTEBOOK_CONFIG[e.type].icon} ${escapeHtml(e.term)}${e.note ? ` — ${escapeHtml(e.note)}` : ''}</span>
+                                <span>${escapeHtml(e.term)}${e.note ? ` — ${escapeHtml(e.note)}` : ''}</span>
                             </label>
                         </li>`;
                     }).join('')}
-                </ul>
-            </div>`;
+                </ul>`;
+        }
+    } else {
+        const entries = getDayEntries(getDateKey(currentDate), type);
+        const listHtml = entries.length === 0
+            ? `<p class="empty-note">No entries added yet today.</p>`
+            : `<ul class="notebook-list">${entries.map(e => renderNotebookListItem(e, type)).join('')}</ul>`;
+        bodyHtml = `
+            <div class="notebook-add-row">
+                <input type="text" class="phrase-input notebook-term-input" data-type="${type}" placeholder="${cfg.termPlaceholder}">
+                <input type="text" class="phrase-input notebook-note-input" data-type="${type}" placeholder="${cfg.notePlaceholder}">
+                <button class="btn-small btn-primary notebook-add-btn" data-type="${type}">Add</button>
+            </div>
+            ${listHtml}`;
     }
-    return NOTEBOOK_TYPES.map(renderNotebookBlock).join('');
+
+    return `
+        <div class="card notebook-card notebook-block" data-type="${type}">
+            <h3>${cfg.icon} ${cfg.label}</h3>
+            ${bodyHtml}
+        </div>`;
+}
+
+function renderNotebookSection(log, isReview) {
+    return NOTEBOOK_TYPES.map(type => renderNotebookCard(type, log, isReview)).join('');
 }
 
 function buildSpeakExtra(log, isReview) {
@@ -542,9 +545,7 @@ function renderSessionCard(blockKey, log, isReview) {
     const done = log.blocks[blockKey].done;
     const index = BLOCK_ORDER.indexOf(blockKey) + 1;
 
-    let extraHtml = '';
-    if (blockKey === 'studysapuri') extraHtml = buildStudysapuriExtra(log, isReview);
-    if (blockKey === 'speak') extraHtml = buildSpeakExtra(log, isReview);
+    const extraHtml = blockKey === 'speak' ? buildSpeakExtra(log, isReview) : '';
 
     const subtitle = (isReview && blockKey === 'studysapuri') ? 'Vocabulary & idiom review' : cfg.subtitle;
 
@@ -596,6 +597,8 @@ function renderToday() {
     minutesTodayLabel.textContent = minutes;
     sessionsCompletedLabel.textContent = `Sessions completed: ${completed} / ${BLOCK_ORDER.length}`;
     progressBarFill.style.width = `${Math.min(100, (minutes / TOTAL_MINUTES) * 100)}%`;
+
+    notebookTodaySection.innerHTML = renderNotebookSection(log, log.isReviewDay);
 
     sessionList.innerHTML = BLOCK_ORDER.map(key => renderSessionCard(key, log, log.isReviewDay)).join('');
 
@@ -777,7 +780,7 @@ function importData(file) {
 // ---- Event wiring --------------------------------------------------------
 
 function submitNotebookEntry(type) {
-    const block = sessionList.querySelector(`.notebook-block[data-type="${type}"]`);
+    const block = notebookTodaySection.querySelector(`.notebook-block[data-type="${type}"]`);
     if (!block) return;
     const termInput = block.querySelector('.notebook-term-input');
     const noteInput = block.querySelector('.notebook-note-input');
@@ -806,18 +809,6 @@ function setupEventListeners() {
         if (pauseBtn) { pauseBlockTimer(pauseBtn.dataset.block); return; }
         const resetBtn = e.target.closest('.timer-reset');
         if (resetBtn) { resetBlockTimer(resetBtn.dataset.block); return; }
-        const addBtn = e.target.closest('.notebook-add-btn');
-        if (addBtn) { submitNotebookEntry(addBtn.dataset.type); return; }
-        const delBtn = e.target.closest('.notebook-delete');
-        if (delBtn) { deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id); return; }
-    });
-
-    sessionList.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter') return;
-        const input = e.target.closest('.notebook-term-input, .notebook-note-input');
-        if (!input) return;
-        e.preventDefault();
-        submitNotebookEntry(input.dataset.type);
     });
 
     sessionList.addEventListener('change', (e) => {
@@ -825,7 +816,26 @@ function setupEventListeners() {
             toggleDone(e.target.dataset.block, e.target.checked);
         } else if (e.target.classList.contains('phrase-used-input')) {
             toggleNotebookUsed(e.target.dataset.type, e.target.dataset.id, e.target.checked);
-        } else if (e.target.classList.contains('review-check-input')) {
+        }
+    });
+
+    notebookTodaySection.addEventListener('click', (e) => {
+        const addBtn = e.target.closest('.notebook-add-btn');
+        if (addBtn) { submitNotebookEntry(addBtn.dataset.type); return; }
+        const delBtn = e.target.closest('.notebook-delete');
+        if (delBtn) { deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id); return; }
+    });
+
+    notebookTodaySection.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const input = e.target.closest('.notebook-term-input, .notebook-note-input');
+        if (!input) return;
+        e.preventDefault();
+        submitNotebookEntry(input.dataset.type);
+    });
+
+    notebookTodaySection.addEventListener('change', (e) => {
+        if (e.target.classList.contains('review-check-input')) {
             toggleReviewCheck(e.target.dataset.key, e.target.checked);
         }
     });
