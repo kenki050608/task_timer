@@ -14,7 +14,6 @@
     --success-color: #7a8c67;
     --success-soft: rgba(122, 140, 103, 0.12);
     --danger-color: #b3492f;
-    --review-color: #90618a;
     --bg-color: #fdfcf9;
     --card-bg: #f6f4ee;
     --card-bg-solid: #fffefb;
@@ -529,17 +528,79 @@ body {
 }
 
 .notebook-page {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 16px;
-    align-items: start;
 }
 
-.notebook-page-card h3 {
+.notebook-page-card h3,
+.quiz-card h3 {
     font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 1.05rem;
     font-weight: 600;
     margin-bottom: 14px;
+}
+
+.quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.quiz-header h3 {
+    margin-bottom: 0;
+}
+
+.quiz-score {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.quiz-prompt-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.quiz-prompt {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.quiz-tap-area {
+    cursor: pointer;
+    background: var(--bg-color);
+    border: 1.5px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 12px;
+    text-align: center;
+    transition: border-color 0.2s ease;
+}
+
+.quiz-tap-area:hover {
+    border-color: var(--primary-color);
+}
+
+.quiz-answer {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-top: 10px;
+}
+
+.quiz-tap-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 8px;
+}
+
+.quiz-actions {
+    display: flex;
+    gap: 10px;
 }
 
 .notebook-list-wrap {
@@ -557,28 +618,6 @@ body {
     gap: 6px;
 }
 
-.speak-phrase-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.review-check {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-    cursor: pointer;
-}
-
-.review-check input {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    flex-shrink: 0;
-    accent-color: var(--review-color);
-}
 
 .empty-note {
     font-size: 0.85rem;

@@ -54,6 +54,7 @@ let currentDate = startOfDay(new Date());
 let currentTab = 'today';
 let trackedTodayKey = getDateKey(new Date());
 const timers = {};
+const quizState = { vocab: null, idioms: null };
 
 // DOM Elements
 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -470,25 +471,17 @@ function toggleDone(blockKey, checked) {
 function addNotebookEntry(type, term, note) {
     const trimmedTerm = (term || '').trim();
     if (!trimmedTerm) return;
-    const entry = { id: makeId(), term: trimmedTerm, note: (note || '').trim(), dateKey: getDateKey(new Date()), used: false };
+    const entry = { id: makeId(), term: trimmedTerm, note: (note || '').trim(), dateKey: getDateKey(new Date()) };
     state[type].push(entry);
     saveState();
     renderNotebookPages();
-    renderToday();
 }
 
 function deleteNotebookEntry(type, id) {
     state[type] = state[type].filter(entry => entry.id !== id);
     saveState();
     renderNotebookPages();
-    renderToday();
     if (currentTab === 'cumulative') renderCumulative();
-}
-
-function toggleNotebookUsed(type, id, checked) {
-    const entry = (state[type] || []).find(e => e.id === id);
-    if (entry) entry.used = checked;
-    saveState();
 }
 
 function changeDate(delta) {
@@ -503,36 +496,11 @@ function changeDate(delta) {
 
 // ---- Rendering: Today view ----------------------------------------------
 
-function buildSpeakExtra() {
-    const dateKey = getDateKey(currentDate);
-    const entries = [
-        ...getDayEntries(dateKey, 'vocab').map(e => ({ ...e, type: 'vocab' })),
-        ...getDayEntries(dateKey, 'idioms').map(e => ({ ...e, type: 'idioms' }))
-    ];
-    if (entries.length === 0) {
-        return '';
-    }
-    return `
-        <div class="extra-block">
-            <p class="extra-label">💬 Use in conversation</p>
-            <ul class="speak-phrase-list">
-                ${entries.map(e => `
-                    <li>
-                        <label class="review-check">
-                            <input type="checkbox" class="phrase-used-input" data-type="${e.type}" data-id="${e.id}" ${e.used ? 'checked' : ''}>
-                            <span>${NOTEBOOK_CONFIG[e.type].icon} ${escapeHtml(e.term)}${e.note ? ` — ${escapeHtml(e.note)}` : ''}</span>
-                        </label>
-                    </li>`).join('')}
-            </ul>
-        </div>`;
-}
-
 function renderSessionCard(blockKey, log) {
     const cfg = BLOCK_CONFIG[blockKey];
     const done = log.blocks[blockKey].done;
     const index = BLOCK_ORDER.indexOf(blockKey) + 1;
 
-    const extraHtml = blockKey === 'speak' ? buildSpeakExtra() : '';
     const subtitle = cfg.subtitle;
     const logoClass = cfg.logoLabel ? 'session-logo session-logo-custom' : 'session-logo';
     const titleHtml = cfg.logoUrl
@@ -571,7 +539,6 @@ function renderSessionCard(blockKey, log) {
                     <button class="btn-small btn-danger timer-reset" data-block="${blockKey}">Reset</button>
                 </div>
             </div>
-            ${extraHtml}
         </div>`;
 }
 
@@ -589,6 +556,93 @@ function renderToday() {
     sessionList.innerHTML = BLOCK_ORDER.map(key => renderSessionCard(key, log)).join('');
 
     syncAllTimerDisplays();
+}
+
+// ---- Quiz ------------------------------------------------------------------
+
+function pickQuizQuestion(type) {
+    const entries = state[type] || [];
+    if (entries.length === 0) return null;
+    const entry = entries[Math.floor(Math.random() * entries.length)];
+    let direction = Math.random() < 0.5 ? 'termToNote' : 'noteToTerm';
+    if (!entry.note && direction === 'noteToTerm') direction = 'termToNote';
+    return { entry, direction };
+}
+
+function startQuiz(type) {
+    const question = pickQuizQuestion(type);
+    if (!question) return;
+    quizState[type] = { current: question, revealed: false, count: 1 };
+    renderNotebookPages();
+}
+
+function revealQuiz(type) {
+    const quiz = quizState[type];
+    if (!quiz || quiz.revealed) return;
+    quiz.revealed = true;
+    renderNotebookPages();
+}
+
+function nextQuizQuestion(type) {
+    const quiz = quizState[type];
+    if (!quiz) return;
+    quiz.current = pickQuizQuestion(type);
+    quiz.revealed = false;
+    quiz.count++;
+    renderNotebookPages();
+}
+
+function endQuiz(type) {
+    quizState[type] = null;
+    renderNotebookPages();
+}
+
+function renderQuizSection(type) {
+    const quiz = quizState[type];
+    const entries = state[type] || [];
+
+    if (!quiz) {
+        return `
+            <div class="card quiz-card" data-type="${type}">
+                <h3>🎲 Practice Quiz</h3>
+                ${entries.length === 0
+                    ? `<p class="empty-note">Add a few entries first to start a quiz.</p>`
+                    : `<button class="btn btn-primary quiz-start-btn" data-type="${type}">Start Quiz</button>`}
+            </div>`;
+    }
+
+    if (!quiz.current) {
+        return `
+            <div class="card quiz-card" data-type="${type}">
+                <h3>🎲 Practice Quiz</h3>
+                <p class="empty-note">No entries left to quiz on.</p>
+                <button class="btn-small btn-secondary quiz-end-btn" data-type="${type}">End Quiz</button>
+            </div>`;
+    }
+
+    const { entry, direction } = quiz.current;
+    const promptLabel = direction === 'termToNote' ? 'What does this mean?' : "What's the word or phrase?";
+    const prompt = direction === 'termToNote' ? entry.term : entry.note;
+    const answer = direction === 'termToNote' ? (entry.note || '(no meaning saved)') : entry.term;
+
+    return `
+        <div class="card quiz-card" data-type="${type}">
+            <div class="quiz-header">
+                <h3>🎲 Practice Quiz</h3>
+                <span class="quiz-score">Question ${quiz.count}</span>
+            </div>
+            <div class="quiz-tap-area" data-type="${type}">
+                <p class="quiz-prompt-label">${promptLabel}</p>
+                <p class="quiz-prompt">${escapeHtml(prompt)}</p>
+                ${quiz.revealed
+                    ? `<p class="quiz-answer">${escapeHtml(answer)}</p>`
+                    : `<p class="quiz-tap-hint">Tap to reveal answer</p>`}
+            </div>
+            <div class="quiz-actions">
+                ${quiz.revealed ? `<button class="btn-small btn-primary quiz-next-btn" data-type="${type}">NEXT</button>` : ''}
+                <button class="btn-small btn-secondary quiz-end-btn" data-type="${type}">End Quiz</button>
+            </div>
+        </div>`;
 }
 
 // ---- Rendering: Notebooks view -------------------------------------------
@@ -626,7 +680,7 @@ function renderNotebookCard(type) {
 
 function renderNotebookPages() {
     NOTEBOOK_TYPES.forEach(type => {
-        notebookPages[type].innerHTML = renderNotebookCard(type);
+        notebookPages[type].innerHTML = renderQuizSection(type) + renderNotebookCard(type);
     });
 }
 
@@ -800,6 +854,14 @@ function wireNotebookContainer(container) {
         if (addBtn) { submitNotebookEntry(addBtn.dataset.type); return; }
         const delBtn = e.target.closest('.notebook-delete');
         if (delBtn) { deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id); return; }
+        const startBtn = e.target.closest('.quiz-start-btn');
+        if (startBtn) { startQuiz(startBtn.dataset.type); return; }
+        const tapArea = e.target.closest('.quiz-tap-area');
+        if (tapArea) { revealQuiz(tapArea.dataset.type); return; }
+        const nextBtn = e.target.closest('.quiz-next-btn');
+        if (nextBtn) { nextQuizQuestion(nextBtn.dataset.type); return; }
+        const endBtn = e.target.closest('.quiz-end-btn');
+        if (endBtn) { endQuiz(endBtn.dataset.type); return; }
     });
 
     container.addEventListener('keydown', (e) => {
@@ -838,8 +900,6 @@ function setupEventListeners() {
     sessionList.addEventListener('change', (e) => {
         if (e.target.classList.contains('done-input')) {
             toggleDone(e.target.dataset.block, e.target.checked);
-        } else if (e.target.classList.contains('phrase-used-input')) {
-            toggleNotebookUsed(e.target.dataset.type, e.target.dataset.id, e.target.checked);
         }
     });
 
