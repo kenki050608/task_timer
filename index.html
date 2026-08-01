@@ -10,7 +10,7 @@
     <link rel="icon" href="icon-192.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,6 +20,7 @@
             <p class="subtitle">Eigo Mimi × Studysapuri × Speak — track your daily 120-minute study routine</p>
             <nav class="tabs">
                 <button class="tab-btn active" data-tab="today">📅 Today</button>
+                <button class="tab-btn" data-tab="notebooks">📕 Notebooks</button>
                 <button class="tab-btn" data-tab="cumulative">📊 Stats</button>
             </nav>
         </header>
@@ -51,9 +52,11 @@
                     </div>
                 </div>
 
-                <div class="notebook-today-section" id="notebookTodaySection"></div>
-
                 <div class="session-list" id="sessionList"></div>
+            </section>
+
+            <section id="notebooksView" class="view">
+                <div class="notebook-page" id="notebookPage"></div>
             </section>
 
             <section id="cumulativeView" class="view">
@@ -88,20 +91,6 @@
                             </thead>
                             <tbody id="historyTableBody"></tbody>
                         </table>
-                    </div>
-                </div>
-
-                <div class="card notebook-card">
-                    <h3>📕 Vocabulary Notebook</h3>
-                    <div class="notebook-list-wrap">
-                        <ul class="notebook-list-full" id="vocabNotebookFull"></ul>
-                    </div>
-                </div>
-
-                <div class="card notebook-card">
-                    <h3>📗 Idiom Notebook</h3>
-                    <div class="notebook-list-wrap">
-                        <ul class="notebook-list-full" id="idiomNotebookFull"></ul>
                     </div>
                 </div>
 

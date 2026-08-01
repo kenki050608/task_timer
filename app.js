@@ -58,12 +58,10 @@ const minutesTodayLabel = document.getElementById('minutesTodayLabel');
 const sessionsCompletedLabel = document.getElementById('sessionsCompletedLabel');
 const progressBarFill = document.getElementById('progressBarFill');
 const sessionList = document.getElementById('sessionList');
-const notebookTodaySection = document.getElementById('notebookTodaySection');
+const notebookPage = document.getElementById('notebookPage');
 const statsGrid = document.getElementById('statsGrid');
 const heatmap = document.getElementById('heatmap');
 const historyTableBody = document.getElementById('historyTableBody');
-const vocabNotebookFull = document.getElementById('vocabNotebookFull');
-const idiomNotebookFull = document.getElementById('idiomNotebookFull');
 const exportBtn = document.getElementById('exportBtn');
 const importBtn = document.getElementById('importBtn');
 const importFileInput = document.getElementById('importFileInput');
@@ -90,7 +88,7 @@ function saveState() {
 
 function defaultLog() {
     const blocks = {};
-    BLOCK_ORDER.forEach(key => { blocks[key] = { done: false }; });
+    BLOCK_ORDER.forEach(key => { blocks[key] = { done: false, secondsSpent: 0 }; });
     return {
         blocks,
         isReviewDay: false,
@@ -155,10 +153,22 @@ function formatMMSS(totalSeconds) {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function formatMinutesValue(minutes) {
+    const rounded = Math.round(minutes * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 // ---- Derived data ----------------------------------------------------------
 
+function calcBlockSeconds(log, blockKey) {
+    const total = BLOCK_CONFIG[blockKey].minutes * 60;
+    const block = log.blocks[blockKey];
+    if (block.done) return total;
+    return Math.min(total, block.secondsSpent || 0);
+}
+
 function calcMinutes(log) {
-    return BLOCK_ORDER.reduce((sum, key) => sum + (log.blocks[key].done ? BLOCK_CONFIG[key].minutes : 0), 0);
+    return BLOCK_ORDER.reduce((sum, key) => sum + calcBlockSeconds(log, key), 0) / 60;
 }
 
 function calcSessionsCompleted(log) {
@@ -198,37 +208,69 @@ function escapeAttr(text) {
 
 // ---- Timers ----------------------------------------------------------------
 //
-// Timers are driven by a fixed end timestamp rather than a per-second
-// decrement, and that timestamp (plus the calendar day it belongs to) is
-// persisted to localStorage. That way the remaining time can always be
-// recomputed from the real clock, so a page reload (a new deploy, or the
-// mobile browser suspending/killing the tab in the background) doesn't lose
-// progress on a timer that was running. Since the timers represent a single
-// day's 120-minute routine, any persisted state from a previous calendar day
-// is discarded rather than restored.
+// Each block tracks total elapsed seconds for the day (log.blocks[key].secondsSpent),
+// persisted and capped at that block's nominal duration. The countdown widget
+// (timers[key]) represents the current attempt only: remaining/total drive the
+// display, while lastBankRemaining marks the last point its progress was
+// credited to secondsSpent. Progress is credited ("banked") on every tick while
+// running, and on pause/reset/complete/restore, so:
+//   - stopping partway (pause, reset, closing the app) still counts that
+//     elapsed time toward the day's total and the cumulative stats
+//   - a block is marked done automatically once secondsSpent reaches the
+//     block's full duration, whether that happens in one continuous run or
+//     across several interrupted attempts
+//
+// The end timestamp (not a plain per-second decrement) is what's persisted,
+// so remaining time survives page reloads and backgrounding.
 
 const TIMER_STORAGE_KEY = 'englishLearningTrackerTimers';
+
+function bankProgress(blockKey) {
+    const timer = timers[blockKey];
+    const delta = timer.lastBankRemaining - timer.remaining;
+    if (delta <= 0) return;
+    timer.lastBankRemaining = timer.remaining;
+    const log = ensureLog(getDateKey(currentDate));
+    const block = log.blocks[blockKey];
+    const newSeconds = Math.min(timer.total, (block.secondsSpent || 0) + delta);
+    block.secondsSpent = newSeconds;
+    if (newSeconds >= timer.total) block.done = true;
+    saveState();
+}
+
+function freshTimer(blockKey) {
+    const total = BLOCK_CONFIG[blockKey].minutes * 60;
+    return { remaining: total, total, endTime: null, interval: null, running: false, lastBankRemaining: total };
+}
+
+function initTimersForDate() {
+    BLOCK_ORDER.forEach(key => {
+        const timer = timers[key];
+        if (timer) {
+            if (timer.running && timer.endTime) {
+                timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
+                bankProgress(key);
+            }
+            if (timer.interval) clearInterval(timer.interval);
+        }
+        timers[key] = freshTimer(key);
+    });
+    localStorage.removeItem(TIMER_STORAGE_KEY);
+}
 
 function persistTimers() {
     const snapshot = { savedDateKey: getDateKey(new Date()), timers: {} };
     BLOCK_ORDER.forEach(key => {
         const t = timers[key];
-        snapshot.timers[key] = { total: t.total, running: t.running, endTime: t.endTime, remaining: t.remaining };
+        snapshot.timers[key] = {
+            total: t.total,
+            running: t.running,
+            endTime: t.endTime,
+            remaining: t.remaining,
+            lastBankRemaining: t.lastBankRemaining
+        };
     });
     localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(snapshot));
-}
-
-function freshTimer(blockKey) {
-    const total = BLOCK_CONFIG[blockKey].minutes * 60;
-    return { remaining: total, total, endTime: null, interval: null, running: false };
-}
-
-function initTimersForDate() {
-    BLOCK_ORDER.forEach(key => {
-        if (timers[key] && timers[key].interval) clearInterval(timers[key].interval);
-        timers[key] = freshTimer(key);
-    });
-    localStorage.removeItem(TIMER_STORAGE_KEY);
 }
 
 function restoreTimers() {
@@ -255,22 +297,26 @@ function restoreTimers() {
             return;
         }
         let remaining = saved.remaining;
-        let running = saved.running;
-        if (running && saved.endTime) {
-            remaining = Math.round((saved.endTime - Date.now()) / 1000);
-            if (remaining <= 0) {
-                remaining = 0;
-                running = false;
-            }
+        const wasRunning = saved.running;
+        if (wasRunning && saved.endTime) {
+            remaining = Math.max(0, Math.round((saved.endTime - Date.now()) / 1000));
         }
         timers[key] = {
-            remaining: Math.max(0, remaining),
+            remaining,
             total,
-            endTime: running ? saved.endTime : null,
+            endTime: null,
             interval: null,
-            running: false
+            running: false,
+            lastBankRemaining: saved.lastBankRemaining != null ? saved.lastBankRemaining : total
         };
-        if (running) startTicking(key);
+        // Credit whatever elapsed while the app was closed or backgrounded.
+        bankProgress(key);
+
+        const log = ensureLog(todayKey);
+        if (wasRunning && timers[key].remaining > 0 && !log.blocks[key].done) {
+            timers[key].endTime = Date.now() + timers[key].remaining * 1000;
+            startTicking(key);
+        }
     });
 }
 
@@ -288,10 +334,14 @@ function startTicking(blockKey) {
     const timer = timers[blockKey];
     timer.running = true;
     timer.interval = setInterval(() => {
-        const remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
-        timer.remaining = remaining;
+        timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
+        bankProgress(blockKey);
         updateTimerDisplay(blockKey);
-        if (remaining <= 0) completeBlockTimer(blockKey);
+        updateProgressSummaryDisplay();
+        const log = ensureLog(getDateKey(currentDate));
+        if (timer.remaining <= 0 || log.blocks[blockKey].done) {
+            completeBlockTimer(blockKey);
+        }
     }, 1000);
 }
 
@@ -309,24 +359,28 @@ function pauseBlockTimer(blockKey) {
     if (!timer.running) return;
     clearInterval(timer.interval);
     timer.interval = null;
-    timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
     timer.running = false;
+    timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
     timer.endTime = null;
+    bankProgress(blockKey);
     persistTimers();
-    updateTimerDisplay(blockKey);
-    updateTimerButtons(blockKey);
+    renderToday();
 }
 
 function resetBlockTimer(blockKey) {
     const timer = timers[blockKey];
+    if (timer.running) {
+        timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
+    }
     clearInterval(timer.interval);
     timer.interval = null;
     timer.running = false;
     timer.endTime = null;
+    bankProgress(blockKey);
     timer.remaining = timer.total;
+    timer.lastBankRemaining = timer.total;
     persistTimers();
-    updateTimerDisplay(blockKey);
-    updateTimerButtons(blockKey);
+    renderToday();
 }
 
 function completeBlockTimer(blockKey) {
@@ -336,14 +390,21 @@ function completeBlockTimer(blockKey) {
     timer.running = false;
     timer.endTime = null;
     timer.remaining = timer.total;
+    timer.lastBankRemaining = timer.total;
     persistTimers();
+
+    const log = ensureLog(getDateKey(currentDate));
+    log.blocks[blockKey].secondsSpent = timer.total;
+    log.blocks[blockKey].done = true;
+    saveState();
+
     playNotificationSound();
     if (Notification.permission === 'granted') {
         new Notification('Study session complete!', {
             body: `${BLOCK_CONFIG[blockKey].title} has finished`
         });
     }
-    toggleDone(blockKey, true);
+    renderToday();
 }
 
 function playNotificationSound() {
@@ -388,6 +449,16 @@ function syncAllTimerDisplays() {
     });
 }
 
+function updateProgressSummaryDisplay() {
+    const dateKey = getDateKey(currentDate);
+    const log = getLogOrDefault(dateKey);
+    const minutes = calcMinutes(log);
+    const completed = calcSessionsCompleted(log);
+    minutesTodayLabel.textContent = formatMinutesValue(minutes);
+    sessionsCompletedLabel.textContent = `Sessions completed: ${completed} / ${BLOCK_ORDER.length}`;
+    progressBarFill.style.width = `${Math.min(100, (minutes / TOTAL_MINUTES) * 100)}%`;
+}
+
 // ---- Mutations ---------------------------------------------------------
 
 function toggleDone(blockKey, checked) {
@@ -400,15 +471,17 @@ function toggleDone(blockKey, checked) {
 function addNotebookEntry(type, term, note) {
     const trimmedTerm = (term || '').trim();
     if (!trimmedTerm) return;
-    const entry = { id: makeId(), term: trimmedTerm, note: (note || '').trim(), dateKey: getDateKey(currentDate), used: false };
+    const entry = { id: makeId(), term: trimmedTerm, note: (note || '').trim(), dateKey: getDateKey(new Date()), used: false };
     state[type].push(entry);
     saveState();
+    renderNotebookPage();
     renderToday();
 }
 
 function deleteNotebookEntry(type, id) {
     state[type] = state[type].filter(entry => entry.id !== id);
     saveState();
+    renderNotebookPage();
     renderToday();
     if (currentTab === 'cumulative') renderCumulative();
 }
@@ -432,13 +505,15 @@ function toggleReviewDay(checked) {
     }
     saveState();
     renderToday();
+    if (currentTab === 'notebooks') renderNotebookPage();
 }
 
 function toggleReviewCheck(entryKey, checked) {
-    const log = ensureLog(getDateKey(currentDate));
+    const dateKey = getDateKey(new Date());
+    const log = ensureLog(dateKey);
     log.reviewChecks[entryKey] = checked;
     saveState();
-    renderToday();
+    renderNotebookPage();
 }
 
 function changeDate(delta) {
@@ -446,70 +521,12 @@ function changeDate(delta) {
     next.setDate(next.getDate() + delta);
     const today = startOfDay(new Date());
     if (next > today) return;
-    currentDate = next;
     initTimersForDate();
+    currentDate = next;
     renderToday();
 }
 
 // ---- Rendering: Today view ----------------------------------------------
-
-function renderNotebookListItem(entry, type) {
-    return `
-        <li class="notebook-item" data-type="${type}" data-id="${entry.id}">
-            <span class="notebook-term">${escapeHtml(entry.term)}</span>${entry.note ? ` <span class="notebook-note">— ${escapeHtml(entry.note)}</span>` : ''}
-            <button class="notebook-delete" data-type="${type}" data-id="${entry.id}" aria-label="Delete">×</button>
-        </li>`;
-}
-
-function renderNotebookCard(type, log, isReview) {
-    const cfg = NOTEBOOK_CONFIG[type];
-    let bodyHtml;
-
-    if (isReview) {
-        const weekEntries = getWeekEntries(getWeekKey(currentDate)).filter(e => e.type === type);
-        if (weekEntries.length === 0) {
-            bodyHtml = `<p class="empty-note">Nothing logged yet this week.</p>`;
-        } else {
-            const checkedCount = weekEntries.filter(e => log.reviewChecks[`${e.type}:${e.id}`]).length;
-            bodyHtml = `
-                <p class="extra-label review-label">🔁 Weekly review (${checkedCount}/${weekEntries.length})</p>
-                <ul class="review-phrase-list">
-                    ${weekEntries.map(e => {
-                        const key = `${e.type}:${e.id}`;
-                        return `
-                        <li>
-                            <label class="review-check">
-                                <input type="checkbox" class="review-check-input" data-key="${escapeAttr(key)}" ${log.reviewChecks[key] ? 'checked' : ''}>
-                                <span>${escapeHtml(e.term)}${e.note ? ` — ${escapeHtml(e.note)}` : ''}</span>
-                            </label>
-                        </li>`;
-                    }).join('')}
-                </ul>`;
-        }
-    } else {
-        const entries = getDayEntries(getDateKey(currentDate), type);
-        const listHtml = entries.length === 0
-            ? `<p class="empty-note">No entries added yet today.</p>`
-            : `<ul class="notebook-list">${entries.map(e => renderNotebookListItem(e, type)).join('')}</ul>`;
-        bodyHtml = `
-            <div class="notebook-add-row">
-                <input type="text" class="phrase-input notebook-term-input" data-type="${type}" placeholder="${cfg.termPlaceholder}">
-                <input type="text" class="phrase-input notebook-note-input" data-type="${type}" placeholder="${cfg.notePlaceholder}">
-                <button class="btn-small btn-primary notebook-add-btn" data-type="${type}">Add</button>
-            </div>
-            ${listHtml}`;
-    }
-
-    return `
-        <div class="card notebook-card notebook-block" data-type="${type}">
-            <h3>${cfg.icon} ${cfg.label}</h3>
-            ${bodyHtml}
-        </div>`;
-}
-
-function renderNotebookSection(log, isReview) {
-    return NOTEBOOK_TYPES.map(type => renderNotebookCard(type, log, isReview)).join('');
-}
 
 function buildSpeakExtra(log, isReview) {
     if (isReview) {
@@ -523,7 +540,7 @@ function buildSpeakExtra(log, isReview) {
         ...getDayEntries(dateKey, 'idioms').map(e => ({ ...e, type: 'idioms' }))
     ];
     if (entries.length === 0) {
-        return `<div class="extra-block"><p class="empty-note">Words and idioms you log in Studysapuri will appear here.</p></div>`;
+        return `<div class="extra-block"><p class="empty-note">Words and idioms logged in the Notebooks tab will appear here.</p></div>`;
     }
     return `
         <div class="extra-block">
@@ -546,7 +563,6 @@ function renderSessionCard(blockKey, log, isReview) {
     const index = BLOCK_ORDER.indexOf(blockKey) + 1;
 
     const extraHtml = blockKey === 'speak' ? buildSpeakExtra(log, isReview) : '';
-
     const subtitle = (isReview && blockKey === 'studysapuri') ? 'Vocabulary & idiom review' : cfg.subtitle;
 
     return `
@@ -592,17 +608,75 @@ function renderToday() {
     reviewDayToggle.checked = log.isReviewDay;
     nextDayBtn.disabled = currentDate >= today;
 
-    const minutes = calcMinutes(log);
-    const completed = calcSessionsCompleted(log);
-    minutesTodayLabel.textContent = minutes;
-    sessionsCompletedLabel.textContent = `Sessions completed: ${completed} / ${BLOCK_ORDER.length}`;
-    progressBarFill.style.width = `${Math.min(100, (minutes / TOTAL_MINUTES) * 100)}%`;
-
-    notebookTodaySection.innerHTML = renderNotebookSection(log, log.isReviewDay);
+    updateProgressSummaryDisplay();
 
     sessionList.innerHTML = BLOCK_ORDER.map(key => renderSessionCard(key, log, log.isReviewDay)).join('');
 
     syncAllTimerDisplays();
+}
+
+// ---- Rendering: Notebooks view -------------------------------------------
+
+function renderNotebookListItem(entry, type, { showDate } = {}) {
+    return `
+        <li class="notebook-item" data-type="${type}" data-id="${entry.id}">
+            <span class="notebook-term">${escapeHtml(entry.term)}</span>${entry.note ? ` <span class="notebook-note">— ${escapeHtml(entry.note)}</span>` : ''}
+            ${showDate ? `<span class="notebook-date">${formatDateLabel(dateFromKey(entry.dateKey))}</span>` : ''}
+            <button class="notebook-delete" data-type="${type}" data-id="${entry.id}" aria-label="Delete">×</button>
+        </li>`;
+}
+
+function renderNotebookCard(type) {
+    const cfg = NOTEBOOK_CONFIG[type];
+    const todayKey = getDateKey(new Date());
+    const todayLog = getLogOrDefault(todayKey);
+
+    let reviewHtml = '';
+    if (todayLog.isReviewDay) {
+        const weekEntries = getWeekEntries(getWeekKey(new Date())).filter(e => e.type === type);
+        if (weekEntries.length > 0) {
+            const checkedCount = weekEntries.filter(e => todayLog.reviewChecks[`${e.type}:${e.id}`]).length;
+            reviewHtml = `
+                <div class="notebook-review">
+                    <p class="extra-label review-label">🔁 Weekly review (${checkedCount}/${weekEntries.length})</p>
+                    <ul class="review-phrase-list">
+                        ${weekEntries.map(e => {
+                            const key = `${e.type}:${e.id}`;
+                            return `
+                            <li>
+                                <label class="review-check">
+                                    <input type="checkbox" class="review-check-input" data-key="${escapeAttr(key)}" ${todayLog.reviewChecks[key] ? 'checked' : ''}>
+                                    <span>${escapeHtml(e.term)}${e.note ? ` — ${escapeHtml(e.note)}` : ''}</span>
+                                </label>
+                            </li>`;
+                        }).join('')}
+                    </ul>
+                </div>`;
+        }
+    }
+
+    const allEntries = [...(state[type] || [])].sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    const listHtml = allEntries.length === 0
+        ? `<p class="empty-note">No entries yet — add your first one above.</p>`
+        : `<ul class="notebook-list-full">${allEntries.map(e => renderNotebookListItem(e, type, { showDate: true })).join('')}</ul>`;
+
+    return `
+        <div class="card notebook-page-card" data-type="${type}">
+            <h3>${cfg.icon} ${cfg.label}</h3>
+            <div class="notebook-add-row">
+                <input type="text" class="phrase-input notebook-term-input" data-type="${type}" placeholder="${cfg.termPlaceholder}">
+                <input type="text" class="phrase-input notebook-note-input" data-type="${type}" placeholder="${cfg.notePlaceholder}">
+                <button class="btn-small btn-primary notebook-add-btn" data-type="${type}">Add</button>
+            </div>
+            ${reviewHtml}
+            <div class="notebook-list-wrap">
+                ${listHtml}
+            </div>
+        </div>`;
+}
+
+function renderNotebookPage() {
+    notebookPage.innerHTML = NOTEBOOK_TYPES.map(renderNotebookCard).join('');
 }
 
 // ---- Rendering: Cumulative view -----------------------------------------
@@ -707,33 +781,17 @@ function renderHistoryTable() {
             <tr>
                 <td>${formatDateLabel(dateFromKey(dateKey))}</td>
                 <td>${completed} / 4</td>
-                <td>${minutes} min</td>
+                <td>${formatMinutesValue(minutes)} min</td>
                 <td>${wordCount}</td>
                 <td>${log.isReviewDay ? '✓' : '-'}</td>
             </tr>`;
     }).join('');
 }
 
-function renderNotebookFullList(type, containerEl) {
-    const entries = [...(state[type] || [])].sort((a, b) => b.dateKey.localeCompare(a.dateKey));
-    if (entries.length === 0) {
-        containerEl.innerHTML = `<li class="empty-note">No entries yet</li>`;
-        return;
-    }
-    containerEl.innerHTML = entries.map(e => `
-        <li class="notebook-item notebook-item-full" data-type="${type}" data-id="${e.id}">
-            <span class="notebook-term">${escapeHtml(e.term)}</span>${e.note ? ` <span class="notebook-note">— ${escapeHtml(e.note)}</span>` : ''}
-            <span class="notebook-date">${formatDateLabel(dateFromKey(e.dateKey))}</span>
-            <button class="notebook-delete" data-type="${type}" data-id="${e.id}" aria-label="Delete">×</button>
-        </li>`).join('');
-}
-
 function renderCumulative() {
     renderStatsGrid();
     renderHeatmap();
     renderHistoryTable();
-    renderNotebookFullList('vocab', vocabNotebookFull);
-    renderNotebookFullList('idioms', idiomNotebookFull);
 }
 
 // ---- Backup / restore ------------------------------------------------------
@@ -771,6 +829,7 @@ function importData(file) {
         saveState();
         initTimersForDate();
         renderToday();
+        renderNotebookPage();
         renderCumulative();
         alert('Data imported successfully.');
     };
@@ -780,7 +839,7 @@ function importData(file) {
 // ---- Event wiring --------------------------------------------------------
 
 function submitNotebookEntry(type) {
-    const block = notebookTodaySection.querySelector(`.notebook-block[data-type="${type}"]`);
+    const block = notebookPage.querySelector(`.notebook-page-card[data-type="${type}"]`);
     if (!block) return;
     const termInput = block.querySelector('.notebook-term-input');
     const noteInput = block.querySelector('.notebook-note-input');
@@ -793,6 +852,8 @@ function setupEventListeners() {
             currentTab = btn.dataset.tab;
             tabBtns.forEach(b => b.classList.toggle('active', b === btn));
             views.forEach(v => v.classList.toggle('active', v.id === `${currentTab}View`));
+            if (currentTab === 'today') renderToday();
+            if (currentTab === 'notebooks') renderNotebookPage();
             if (currentTab === 'cumulative') renderCumulative();
         });
     });
@@ -819,14 +880,14 @@ function setupEventListeners() {
         }
     });
 
-    notebookTodaySection.addEventListener('click', (e) => {
+    notebookPage.addEventListener('click', (e) => {
         const addBtn = e.target.closest('.notebook-add-btn');
         if (addBtn) { submitNotebookEntry(addBtn.dataset.type); return; }
         const delBtn = e.target.closest('.notebook-delete');
         if (delBtn) { deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id); return; }
     });
 
-    notebookTodaySection.addEventListener('keydown', (e) => {
+    notebookPage.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
         const input = e.target.closest('.notebook-term-input, .notebook-note-input');
         if (!input) return;
@@ -834,17 +895,10 @@ function setupEventListeners() {
         submitNotebookEntry(input.dataset.type);
     });
 
-    notebookTodaySection.addEventListener('change', (e) => {
+    notebookPage.addEventListener('change', (e) => {
         if (e.target.classList.contains('review-check-input')) {
             toggleReviewCheck(e.target.dataset.key, e.target.checked);
         }
-    });
-
-    [vocabNotebookFull, idiomNotebookFull].forEach(el => {
-        el.addEventListener('click', (e) => {
-            const delBtn = e.target.closest('.notebook-delete');
-            if (delBtn) deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id);
-        });
     });
 
     exportBtn.addEventListener('click', exportData);

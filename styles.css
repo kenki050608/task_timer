@@ -25,7 +25,7 @@
 }
 
 body {
-    font-family: 'Zen Kaku Gothic New', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: var(--bg-color);
     color: var(--text-color);
     min-height: 100vh;
@@ -47,7 +47,7 @@ body {
 }
 
 .header h1 {
-    font-family: 'Shippori Mincho', Georgia, 'Hiragino Mincho ProN', serif;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 2.1rem;
     font-weight: 600;
     letter-spacing: -0.01em;
@@ -128,7 +128,7 @@ body {
 }
 
 .date-label {
-    font-family: 'Shippori Mincho', Georgia, 'Hiragino Mincho ProN', serif;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 1.2rem;
     font-weight: 600;
     margin-bottom: 8px;
@@ -180,7 +180,7 @@ body {
 }
 
 .progress-value {
-    font-family: 'Shippori Mincho', Georgia, 'Hiragino Mincho ProN', serif;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 1.9rem;
     font-weight: 700;
     color: var(--primary-color);
@@ -213,12 +213,6 @@ body {
 }
 
 /* Session cards */
-.notebook-today-section {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-}
-
 .review-label {
     color: var(--review-color);
 }
@@ -272,13 +266,13 @@ body {
 }
 
 .session-title h3 {
-    font-family: 'Shippori Mincho', Georgia, 'Hiragino Mincho ProN', serif;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 1.05rem;
     font-weight: 600;
 }
 
 .session-minutes {
-    font-family: 'Zen Kaku Gothic New', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-weight: 400;
     color: var(--text-muted);
     font-size: 0.85rem;
@@ -522,15 +516,31 @@ body {
     color: #fff8f4;
 }
 
-.notebook-card h3 {
-    font-family: 'Shippori Mincho', Georgia, 'Hiragino Mincho ProN', serif;
+.notebook-page {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.notebook-page-card h3 {
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 1.05rem;
     font-weight: 600;
     margin-bottom: 14px;
 }
 
+.notebook-review {
+    margin: 14px 0;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border-color);
+}
+
 .notebook-list-wrap {
-    max-height: 320px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border-color);
+    max-height: 420px;
     overflow-y: auto;
 }
 
@@ -539,13 +549,6 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
-}
-
-.notebook-list-full .notebook-item-full {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    flex-wrap: wrap;
 }
 
 .review-phrase-list,
@@ -604,7 +607,7 @@ body {
 }
 
 .stat-value {
-    font-family: 'Shippori Mincho', Georgia, 'Hiragino Mincho ProN', serif;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 1.6rem;
     font-weight: 700;
     color: var(--primary-color);
@@ -619,7 +622,7 @@ body {
 /* Heatmap */
 .heatmap-card h3,
 .history-card h3 {
-    font-family: 'Shippori Mincho', Georgia, 'Hiragino Mincho ProN', serif;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 1.05rem;
     font-weight: 600;
     margin-bottom: 14px;
@@ -674,7 +677,7 @@ body {
 
 /* Backup / restore */
 .backup-card h3 {
-    font-family: 'Shippori Mincho', Georgia, 'Hiragino Mincho ProN', serif;
+    font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 1.05rem;
     font-weight: 600;
     margin-bottom: 10px;
