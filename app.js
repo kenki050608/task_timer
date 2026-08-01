@@ -20,12 +20,15 @@ const BLOCK_CONFIG = {
         title: 'Studysapuri Business',
         subtitle: 'Input, dictation & vocabulary/idiom logging',
         minutes: 45,
-        logoUrl: 'https://icons.duckduckgo.com/ip3/eigosapuri.jp.ico'
+        logoUrl: 'studysapuri-logo.png',
+        logoLabel: 'Input & Dictation'
     },
     shadowing: {
         title: 'Shadowing',
         subtitle: 'Overlap Eigo Mimi’s sound patterns onto Studysapuri audio',
-        minutes: 30
+        minutes: 30,
+        logoUrl: 'studysapuri-logo.png',
+        logoLabel: 'Shadowing Practice'
     },
     speak: {
         title: 'Speak',
