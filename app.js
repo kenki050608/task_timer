@@ -1,6 +1,7 @@
 // ==========================================================================
-// ビジネス英語学習トラッカー
-// 英語耳 / スタディサプリ ビジネス / Speak を連動させた1日120分の学習を記録する
+// Business English Study Tracker
+// Tracks a daily 120-minute routine combining Eigo Mimi, Studysapuri
+// Business, and Speak.
 // ==========================================================================
 
 const STORAGE_KEY = 'englishLearningTrackerData';
@@ -9,23 +10,23 @@ const BLOCK_ORDER = ['eigomimi', 'studysapuri', 'shadowing', 'speak'];
 
 const BLOCK_CONFIG = {
     eigomimi: {
-        title: '英語耳',
-        subtitle: '発音のOS構築・ウォーミングアップ',
+        title: 'Eigo Mimi',
+        subtitle: 'Pronunciation warm-up & sound training',
         minutes: 15
     },
     studysapuri: {
-        title: 'スタディサプリ ビジネス',
-        subtitle: 'インプット・ディクテーション・キーフレーズ抽出',
+        title: 'Studysapuri Business',
+        subtitle: 'Input, dictation & key phrase extraction',
         minutes: 45
     },
     shadowing: {
-        title: 'シャドーイング',
-        subtitle: '英語耳手法 × スタサプ音源でオーバーラッピング',
+        title: 'Shadowing',
+        subtitle: 'Overlap Eigo Mimi’s sound patterns onto Studysapuri audio',
         minutes: 30
     },
     speak: {
         title: 'Speak',
-        subtitle: 'AI対話でキーフレーズを実践投入',
+        subtitle: 'Put your key phrases into practice via AI conversation',
         minutes: 30
     }
 };
@@ -125,10 +126,11 @@ function getWeekKey(date) {
     return getDateKey(getMonday(date));
 }
 
-const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function formatDateLabel(date) {
-    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日（${WEEKDAY_LABELS[date.getDay()]}）`;
+    return `${MONTH_LABELS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} (${WEEKDAY_LABELS[date.getDay()]})`;
 }
 
 function formatMMSS(totalSeconds) {
@@ -225,8 +227,8 @@ function completeBlockTimer(blockKey) {
     timer.remaining = timer.total;
     playNotificationSound();
     if (Notification.permission === 'granted') {
-        new Notification('学習セッション完了!', {
-            body: `${BLOCK_CONFIG[blockKey].title} が終了しました`
+        new Notification('Study session complete!', {
+            body: `${BLOCK_CONFIG[blockKey].title} has finished`
         });
     }
     toggleDone(blockKey, true);
@@ -333,12 +335,12 @@ function buildStudysapuriExtra(log, isReview) {
     if (isReview) {
         const weekPhrases = getWeekPhrases(getWeekKey(currentDate));
         if (weekPhrases.length === 0) {
-            return `<div class="extra-block"><p class="empty-note">今週まだキーフレーズが登録されていません。</p></div>`;
+            return `<div class="extra-block"><p class="empty-note">No key phrases logged yet this week.</p></div>`;
         }
         const checkedCount = weekPhrases.filter(p => log.reviewChecks[p]).length;
         return `
             <div class="extra-block review-block">
-                <p class="extra-label">📘 今週のフレーズ再テスト（${checkedCount}/${weekPhrases.length}）</p>
+                <p class="extra-label">📘 Weekly phrase review (${checkedCount}/${weekPhrases.length})</p>
                 <ul class="review-phrase-list">
                     ${weekPhrases.map(p => `
                         <li>
@@ -352,10 +354,10 @@ function buildStudysapuriExtra(log, isReview) {
     }
     return `
         <div class="extra-block">
-            <p class="extra-label">✏️ 明日使いたいキーフレーズ（1日3個まで）</p>
+            <p class="extra-label">✏️ Key phrases to use next (up to 3/day)</p>
             <div class="phrase-inputs">
                 ${[0, 1, 2].map(i => `
-                    <input type="text" class="phrase-input" data-index="${i}" placeholder="キーフレーズ ${i + 1}" value="${escapeAttr(log.phrases[i] || '')}">
+                    <input type="text" class="phrase-input" data-index="${i}" placeholder="Key phrase ${i + 1}" value="${escapeAttr(log.phrases[i] || '')}">
                 `).join('')}
             </div>
         </div>`;
@@ -365,15 +367,15 @@ function buildSpeakExtra(log, isReview) {
     if (isReview) {
         const weekPhrases = getWeekPhrases(getWeekKey(currentDate));
         const checkedCount = weekPhrases.filter(p => log.reviewChecks[p]).length;
-        return `<div class="extra-block"><p class="extra-label">🔁 復習日: 週のフレーズを対話内で再テスト（${checkedCount}/${weekPhrases.length}）</p></div>`;
+        return `<div class="extra-block"><p class="extra-label">🔁 Review day: retest this week's phrases in conversation (${checkedCount}/${weekPhrases.length})</p></div>`;
     }
     const nonEmpty = log.phrases.filter(p => p && p.trim());
     if (nonEmpty.length === 0) {
-        return `<div class="extra-block"><p class="empty-note">スタディサプリでキーフレーズを登録すると、ここに表示されます。</p></div>`;
+        return `<div class="extra-block"><p class="empty-note">Phrases you log in Studysapuri will appear here.</p></div>`;
     }
     return `
         <div class="extra-block">
-            <p class="extra-label">💬 対話内で使用する</p>
+            <p class="extra-label">💬 Use in conversation</p>
             <ul class="speak-phrase-list">
                 ${log.phrases.map((p, i) => (p && p.trim()) ? `
                     <li>
@@ -403,7 +405,7 @@ function renderSessionCard(blockKey, log, isReview) {
     if (blockKey === 'studysapuri') extraHtml = buildStudysapuriExtra(log, isReview);
     if (blockKey === 'speak') extraHtml = `<div class="extra-block-wrap">${buildSpeakExtra(log, isReview)}</div>`;
 
-    const subtitle = (isReview && blockKey === 'studysapuri') ? 'フレーズ復習・再テスト' : cfg.subtitle;
+    const subtitle = (isReview && blockKey === 'studysapuri') ? 'Phrase review & retest' : cfg.subtitle;
 
     return `
         <div class="session-card ${done ? 'done' : ''}" data-block="${blockKey}">
@@ -411,13 +413,13 @@ function renderSessionCard(blockKey, log, isReview) {
                 <div class="session-title">
                     <span class="session-index">${index}</span>
                     <div>
-                        <h3>${cfg.title} <span class="session-minutes">(${cfg.minutes}分)</span></h3>
+                        <h3>${cfg.title} <span class="session-minutes">(${cfg.minutes} min)</span></h3>
                         <p class="session-subtitle">${subtitle}</p>
                     </div>
                 </div>
                 <label class="done-checkbox">
                     <input type="checkbox" class="done-input" data-block="${blockKey}" ${done ? 'checked' : ''}>
-                    <span>完了</span>
+                    <span>Done</span>
                 </label>
             </div>
             <div class="session-timer">
@@ -429,9 +431,9 @@ function renderSessionCard(blockKey, log, isReview) {
                     <span class="mini-timer-display" id="display-${blockKey}">${formatMMSS(cfg.minutes * 60)}</span>
                 </div>
                 <div class="mini-timer-controls">
-                    <button class="btn-small btn-primary timer-start" data-block="${blockKey}">開始</button>
-                    <button class="btn-small btn-secondary timer-pause" data-block="${blockKey}" disabled>一時停止</button>
-                    <button class="btn-small btn-danger timer-reset" data-block="${blockKey}">リセット</button>
+                    <button class="btn-small btn-primary timer-start" data-block="${blockKey}">Start</button>
+                    <button class="btn-small btn-secondary timer-pause" data-block="${blockKey}" disabled>Pause</button>
+                    <button class="btn-small btn-danger timer-reset" data-block="${blockKey}">Reset</button>
                 </div>
             </div>
             ${extraHtml}
@@ -444,14 +446,14 @@ function renderToday() {
     const today = startOfDay(new Date());
     const isToday = dateKey === getDateKey(today);
 
-    currentDateLabel.textContent = formatDateLabel(currentDate) + (isToday ? '（今日）' : '');
+    currentDateLabel.textContent = formatDateLabel(currentDate) + (isToday ? ' (Today)' : '');
     reviewDayToggle.checked = log.isReviewDay;
     nextDayBtn.disabled = currentDate >= today;
 
     const minutes = calcMinutes(log);
     const completed = calcSessionsCompleted(log);
     minutesTodayLabel.textContent = minutes;
-    sessionsCompletedLabel.textContent = `完了セッション: ${completed} / ${BLOCK_ORDER.length}`;
+    sessionsCompletedLabel.textContent = `Sessions completed: ${completed} / ${BLOCK_ORDER.length}`;
     progressBarFill.style.width = `${Math.min(100, (minutes / TOTAL_MINUTES) * 100)}%`;
 
     sessionList.innerHTML = BLOCK_ORDER.map(key => renderSessionCard(key, log, log.isReviewDay)).join('');
@@ -507,12 +509,12 @@ function renderStatsGrid() {
     const reviewDays = allLogs.filter(log => log.isReviewDay).length;
 
     const stats = [
-        { icon: '🔥', value: computeCurrentStreak(), label: '現在の連続学習日数' },
-        { icon: '🏆', value: computeLongestStreak(), label: '最長連続学習日数' },
-        { icon: '📚', value: daysStudied, label: '総学習日数' },
-        { icon: '⏱️', value: `${totalHours}h`, label: '総学習時間' },
-        { icon: '💡', value: totalPhrases, label: '総ストックフレーズ数' },
-        { icon: '🔁', value: reviewDays, label: '復習日の実施回数' }
+        { icon: '🔥', value: computeCurrentStreak(), label: 'Current Streak' },
+        { icon: '🏆', value: computeLongestStreak(), label: 'Longest Streak' },
+        { icon: '📚', value: daysStudied, label: 'Total Study Days' },
+        { icon: '⏱️', value: `${totalHours}h`, label: 'Total Study Time' },
+        { icon: '💡', value: totalPhrases, label: 'Total Phrases Logged' },
+        { icon: '🔁', value: reviewDays, label: 'Review Days Completed' }
     ];
 
     statsGrid.innerHTML = stats.map(s => `
@@ -540,7 +542,7 @@ function renderHeatmap() {
             const dateKey = getDateKey(date);
             const log = state.logs[dateKey];
             const completed = log ? calcSessionsCompleted(log) : 0;
-            cells += `<div class="heatmap-cell level-${completed}" title="${formatDateLabel(date)}: ${completed}/4セッション"></div>`;
+            cells += `<div class="heatmap-cell level-${completed}" title="${formatDateLabel(date)}: ${completed}/4 sessions"></div>`;
         }
     }
     heatmap.innerHTML = cells;
@@ -549,7 +551,7 @@ function renderHeatmap() {
 function renderHistoryTable() {
     const sortedKeys = Object.keys(state.logs).sort().reverse();
     if (sortedKeys.length === 0) {
-        historyTableBody.innerHTML = `<tr><td colspan="5" class="empty-note">まだ記録がありません</td></tr>`;
+        historyTableBody.innerHTML = `<tr><td colspan="5" class="empty-note">No records yet</td></tr>`;
         return;
     }
     historyTableBody.innerHTML = sortedKeys.slice(0, 60).map(dateKey => {
@@ -561,8 +563,8 @@ function renderHistoryTable() {
             <tr>
                 <td>${formatDateLabel(dateFromKey(dateKey))}</td>
                 <td>${completed} / 4</td>
-                <td>${minutes}分</td>
-                <td>${phraseCount}個</td>
+                <td>${minutes} min</td>
+                <td>${phraseCount}</td>
                 <td>${log.isReviewDay ? '✓' : '-'}</td>
             </tr>`;
     }).join('');
@@ -595,20 +597,20 @@ function importData(file) {
         try {
             parsed = JSON.parse(reader.result);
         } catch (e) {
-            alert('ファイルの読み込みに失敗しました。正しいバックアップファイルを選択してください。');
+            alert('Failed to read the file. Please select a valid backup file.');
             return;
         }
         if (!parsed || typeof parsed !== 'object' || typeof parsed.logs !== 'object') {
-            alert('このファイルは学習記録のバックアップとして認識できませんでした。');
+            alert('This file was not recognized as a valid study data backup.');
             return;
         }
-        if (!confirm('この端末の記録を、選択したファイルの内容で上書きします。よろしいですか？')) return;
+        if (!confirm('This will overwrite this device\'s records with the selected file. Continue?')) return;
         state = parsed;
         saveState();
         initTimersForDate();
         renderToday();
         renderCumulative();
-        alert('データを読み込みました。');
+        alert('Data imported successfully.');
     };
     reader.readAsText(file);
 }

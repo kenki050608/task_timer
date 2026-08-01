@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ビジネス英語学習トラッカー</title>
+    <title>Business English Study Tracker</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#cc785c">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -16,35 +16,35 @@
 <body>
     <div class="app">
         <header class="header">
-            <h1>ビジネス英語学習トラッカー</h1>
-            <p class="subtitle">英語耳 × スタディサプリ × Speak — 1日120分の学習管理</p>
+            <h1>Business English Study Tracker</h1>
+            <p class="subtitle">Eigo Mimi × Studysapuri × Speak — track your daily 120-minute study routine</p>
             <nav class="tabs">
-                <button class="tab-btn active" data-tab="today">📅 今日の学習</button>
-                <button class="tab-btn" data-tab="cumulative">📊 累積の記録</button>
+                <button class="tab-btn active" data-tab="today">📅 Today</button>
+                <button class="tab-btn" data-tab="cumulative">📊 Stats</button>
             </nav>
         </header>
 
         <main class="main">
             <section id="todayView" class="view active">
                 <div class="date-nav card">
-                    <button class="btn-icon" id="prevDayBtn" aria-label="前の日">◀</button>
+                    <button class="btn-icon" id="prevDayBtn" aria-label="Previous day">◀</button>
                     <div class="date-nav-center">
                         <div class="date-label" id="currentDateLabel"></div>
                         <label class="review-toggle">
                             <input type="checkbox" id="reviewDayToggle">
-                            <span>この日を復習日にする（週1回・新規進行ストップ）</span>
+                            <span>Make this a review day (once a week, pause new lessons)</span>
                         </label>
                     </div>
-                    <button class="btn-icon" id="nextDayBtn" aria-label="次の日">▶</button>
+                    <button class="btn-icon" id="nextDayBtn" aria-label="Next day">▶</button>
                 </div>
 
                 <div class="progress-summary card">
                     <div class="progress-summary-top">
                         <div class="progress-stat">
                             <span class="progress-value" id="minutesTodayLabel">0</span>
-                            <span class="progress-label">/ 120分</span>
+                            <span class="progress-label">/ 120 min</span>
                         </div>
-                        <div class="progress-stat-small" id="sessionsCompletedLabel">完了セッション: 0 / 4</div>
+                        <div class="progress-stat-small" id="sessionsCompletedLabel">Sessions completed: 0 / 4</div>
                     </div>
                     <div class="progress-bar-track">
                         <div class="progress-bar-fill" id="progressBarFill"></div>
@@ -58,30 +58,30 @@
                 <div class="stats-grid" id="statsGrid"></div>
 
                 <div class="card heatmap-card">
-                    <h3>学習ヒートマップ（直近12週間）</h3>
+                    <h3>Study Heatmap (Last 12 Weeks)</h3>
                     <div class="heatmap" id="heatmap"></div>
                     <div class="heatmap-legend">
-                        <span>少</span>
+                        <span>Less</span>
                         <span class="legend-dot level-0"></span>
                         <span class="legend-dot level-1"></span>
                         <span class="legend-dot level-2"></span>
                         <span class="legend-dot level-3"></span>
                         <span class="legend-dot level-4"></span>
-                        <span>多</span>
+                        <span>More</span>
                     </div>
                 </div>
 
                 <div class="card history-card">
-                    <h3>学習履歴</h3>
+                    <h3>Study History</h3>
                     <div class="history-table-wrap">
                         <table class="history-table">
                             <thead>
                                 <tr>
-                                    <th>日付</th>
-                                    <th>セッション</th>
-                                    <th>学習時間</th>
-                                    <th>フレーズ</th>
-                                    <th>復習日</th>
+                                    <th>Date</th>
+                                    <th>Sessions</th>
+                                    <th>Study Time</th>
+                                    <th>Phrases</th>
+                                    <th>Review Day</th>
                                 </tr>
                             </thead>
                             <tbody id="historyTableBody"></tbody>
@@ -90,11 +90,11 @@
                 </div>
 
                 <div class="card backup-card">
-                    <h3>データのバックアップ（機種変更時の引き継ぎ）</h3>
-                    <p class="backup-note">記録はこの端末のブラウザ内にのみ保存されています。機種変更の前に「書き出す」でファイルを保存し、新しい端末で「読み込む」から選択すると記録を引き継げます。</p>
+                    <h3>Data Backup (for switching phones)</h3>
+                    <p class="backup-note">Your records are stored only in this device's browser. Before switching phones, tap "Export" to save a file, then on the new device open this app and tap "Import" to select that file and restore your records.</p>
                     <div class="backup-actions">
-                        <button class="btn btn-secondary" id="exportBtn">📤 書き出す</button>
-                        <button class="btn btn-secondary" id="importBtn">📥 読み込む</button>
+                        <button class="btn btn-secondary" id="exportBtn">📤 Export</button>
+                        <button class="btn btn-secondary" id="importBtn">📥 Import</button>
                         <input type="file" id="importFileInput" accept="application/json" hidden>
                     </div>
                 </div>
