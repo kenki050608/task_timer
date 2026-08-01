@@ -289,6 +289,16 @@ body {
     border: 1px solid var(--border-color);
 }
 
+.session-logo-custom {
+    height: 40px;
+    width: auto;
+    border: none;
+    background: transparent;
+    padding: 0;
+    border-radius: 6px;
+    vertical-align: middle;
+}
+
 .session-subtitle {
     font-size: 0.85rem;
     color: var(--text-muted);

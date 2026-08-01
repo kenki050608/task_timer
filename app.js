@@ -13,7 +13,8 @@ const BLOCK_CONFIG = {
         title: 'Eigo Mimi',
         subtitle: 'Pronunciation warm-up & sound training',
         minutes: 15,
-        logoUrl: 'https://icons.duckduckgo.com/ip3/eigomimi.info.ico'
+        logoUrl: 'eigomimi-logo.png',
+        logoLabel: '発音練習'
     },
     studysapuri: {
         title: 'Studysapuri Business',
@@ -571,8 +572,9 @@ function renderSessionCard(blockKey, log, isReview) {
 
     const extraHtml = blockKey === 'speak' ? buildSpeakExtra(log, isReview) : '';
     const subtitle = (isReview && blockKey === 'studysapuri') ? 'Vocabulary & idiom review' : cfg.subtitle;
+    const logoClass = cfg.logoLabel ? 'session-logo session-logo-custom' : 'session-logo';
     const titleHtml = cfg.logoUrl
-        ? `<img src="${escapeAttr(cfg.logoUrl)}" alt="${escapeAttr(cfg.title)}" title="${escapeAttr(cfg.title)}" class="session-logo" onerror="handleLogoError(this)">`
+        ? `<img src="${escapeAttr(cfg.logoUrl)}" alt="${escapeAttr(cfg.title)}" title="${escapeAttr(cfg.title)}" class="${logoClass}" onerror="handleLogoError(this)">${cfg.logoLabel ? ` ${escapeHtml(cfg.logoLabel)}` : ''}`
         : cfg.title;
 
     return `
