@@ -85,6 +85,16 @@
                         </table>
                     </div>
                 </div>
+
+                <div class="card backup-card">
+                    <h3>データのバックアップ（機種変更時の引き継ぎ）</h3>
+                    <p class="backup-note">記録はこの端末のブラウザ内にのみ保存されています。機種変更の前に「書き出す」でファイルを保存し、新しい端末で「読み込む」から選択すると記録を引き継げます。</p>
+                    <div class="backup-actions">
+                        <button class="btn btn-secondary" id="exportBtn">📤 書き出す</button>
+                        <button class="btn btn-secondary" id="importBtn">📥 読み込む</button>
+                        <input type="file" id="importFileInput" accept="application/json" hidden>
+                    </div>
+                </div>
             </section>
         </main>
     </div>

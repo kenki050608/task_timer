@@ -542,6 +542,24 @@ body {
 .legend-dot.level-3 { background: #2563eb; }
 .legend-dot.level-4 { background: #1d4ed8; }
 
+/* Backup / restore */
+.backup-card h3 {
+    font-size: 1rem;
+    margin-bottom: 10px;
+}
+
+.backup-note {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+}
+
+.backup-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 /* History table */
 .history-table-wrap {
     max-height: 360px;

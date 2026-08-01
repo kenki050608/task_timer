@@ -53,6 +53,9 @@ const sessionList = document.getElementById('sessionList');
 const statsGrid = document.getElementById('statsGrid');
 const heatmap = document.getElementById('heatmap');
 const historyTableBody = document.getElementById('historyTableBody');
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const importFileInput = document.getElementById('importFileInput');
 
 // ---- Storage helpers ----------------------------------------------------
 
@@ -571,6 +574,45 @@ function renderCumulative() {
     renderHistoryTable();
 }
 
+// ---- Backup / restore ------------------------------------------------------
+
+function exportData() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eigo-tracker-backup-${getDateKey(new Date())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+function importData(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+        let parsed;
+        try {
+            parsed = JSON.parse(reader.result);
+        } catch (e) {
+            alert('ファイルの読み込みに失敗しました。正しいバックアップファイルを選択してください。');
+            return;
+        }
+        if (!parsed || typeof parsed !== 'object' || typeof parsed.logs !== 'object') {
+            alert('このファイルは学習記録のバックアップとして認識できませんでした。');
+            return;
+        }
+        if (!confirm('この端末の記録を、選択したファイルの内容で上書きします。よろしいですか？')) return;
+        state = parsed;
+        saveState();
+        initTimersForDate();
+        renderToday();
+        renderCumulative();
+        alert('データを読み込みました。');
+    };
+    reader.readAsText(file);
+}
+
 // ---- Event wiring --------------------------------------------------------
 
 function setupEventListeners() {
@@ -611,6 +653,14 @@ function setupEventListeners() {
         if (e.target.classList.contains('phrase-input')) {
             updatePhrase(parseInt(e.target.dataset.index, 10), e.target.value);
         }
+    });
+
+    exportBtn.addEventListener('click', exportData);
+    importBtn.addEventListener('click', () => importFileInput.click());
+    importFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) importData(file);
+        importFileInput.value = '';
     });
 }
 
