@@ -5,24 +5,51 @@
 }
 
 :root {
-    --primary-color: #2563eb;
-    --primary-dark: #1d4ed8;
-    --secondary-color: #3498db;
-    --success-color: #27ae60;
-    --danger-color: #e74c3c;
-    --review-color: #9b59b6;
-    --bg-color: #ffffff;
-    --card-bg: #f8f9fa;
-    --text-color: #2c3e50;
-    --text-muted: #7f8c8d;
-    --border-color: #e0e0e0;
+    --primary-color: #cc785c;
+    --primary-dark: #b35f45;
+    --primary-soft: rgba(204, 120, 92, 0.12);
+    --secondary-color: #6a8a94;
+    --secondary-dark: #56727a;
+    --success-color: #7a8c67;
+    --success-soft: rgba(122, 140, 103, 0.12);
+    --danger-color: #b3492f;
+    --review-color: #90618a;
+    --bg-color: #faf9f5;
+    --card-bg: #f0eee6;
+    --card-bg-solid: #fffdf9;
+    --text-color: #3d3929;
+    --text-muted: #83807c;
+    --border-color: #e5e2d8;
+    --shadow-color: rgba(61, 57, 41, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary-color: #d99074;
+        --primary-dark: #e0a58c;
+        --primary-soft: rgba(217, 144, 116, 0.16);
+        --secondary-color: #8bb0b9;
+        --secondary-dark: #a2c2ca;
+        --success-color: #a3b78f;
+        --success-soft: rgba(163, 183, 143, 0.14);
+        --danger-color: #e07a5f;
+        --review-color: #c99bc2;
+        --bg-color: #262521;
+        --card-bg: #322f28;
+        --card-bg-solid: #322f28;
+        --text-color: #f2f0e8;
+        --text-muted: #a8a49b;
+        --border-color: #45413a;
+        --shadow-color: rgba(0, 0, 0, 0.25);
+    }
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: var(--bg-color);
     color: var(--text-color);
     min-height: 100vh;
+    transition: background 0.3s ease, color 0.3s ease;
 }
 
 .app {
@@ -34,51 +61,53 @@ body {
 /* Header */
 .header {
     text-align: center;
-    padding: 30px 0 20px;
-    border-bottom: 2px solid var(--border-color);
+    padding: 36px 0 24px;
+    border-bottom: 1px solid var(--border-color);
     margin-bottom: 30px;
 }
 
 .header h1 {
-    font-size: 2rem;
-    font-weight: 700;
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Hiragino Mincho ProN', serif;
+    font-size: 2.1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     color: var(--text-color);
 }
 
 .header .subtitle {
-    margin-top: 8px;
+    margin-top: 10px;
     color: var(--text-muted);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
 }
 
 .tabs {
     display: flex;
     justify-content: center;
     gap: 10px;
-    margin-top: 20px;
+    margin-top: 22px;
 }
 
 .tab-btn {
     padding: 10px 20px;
-    background: var(--card-bg);
-    border: 2px solid var(--border-color);
+    background: var(--card-bg-solid);
+    border: 1px solid var(--border-color);
     border-radius: 25px;
     color: var(--text-muted);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
 }
 
 .tab-btn:hover {
     border-color: var(--primary-color);
-    color: var(--text-color);
+    color: var(--primary-color);
 }
 
 .tab-btn.active {
     background: var(--primary-color);
     border-color: var(--primary-color);
-    color: white;
+    color: #fff8f4;
 }
 
 /* Main Layout */
@@ -100,8 +129,9 @@ body {
 .card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 20px;
+    box-shadow: 0 2px 8px var(--shadow-color);
 }
 
 /* Date Nav */
@@ -118,16 +148,18 @@ body {
 }
 
 .date-label {
-    font-size: 1.15rem;
-    font-weight: 700;
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Hiragino Mincho ProN', serif;
+    font-size: 1.2rem;
+    font-weight: 600;
     margin-bottom: 8px;
 }
 
 .btn-icon {
     width: 40px;
     height: 40px;
-    border: 2px solid var(--border-color);
-    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    background: var(--card-bg-solid);
+    color: var(--text-color);
     border-radius: 50%;
     cursor: pointer;
     font-size: 1rem;
@@ -168,7 +200,8 @@ body {
 }
 
 .progress-value {
-    font-size: 1.8rem;
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Hiragino Mincho ProN', serif;
+    font-size: 1.9rem;
     font-weight: 700;
     color: var(--primary-color);
 }
@@ -207,16 +240,17 @@ body {
 }
 
 .session-card {
-    background: #ffffff;
+    background: var(--card-bg-solid);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 18px;
+    box-shadow: 0 2px 8px var(--shadow-color);
     transition: border-color 0.3s ease, background 0.3s ease;
 }
 
 .session-card.done {
     border-color: var(--success-color);
-    background: rgba(39, 174, 96, 0.06);
+    background: var(--success-soft);
 }
 
 .session-card-header {
@@ -241,17 +275,20 @@ body {
     height: 28px;
     border-radius: 50%;
     background: var(--card-bg);
-    border: 2px solid var(--border-color);
+    border: 1px solid var(--border-color);
     font-weight: 700;
     font-size: 0.9rem;
     flex-shrink: 0;
 }
 
 .session-title h3 {
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Hiragino Mincho ProN', serif;
     font-size: 1.05rem;
+    font-weight: 600;
 }
 
 .session-minutes {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
     font-weight: 400;
     color: var(--text-muted);
     font-size: 0.85rem;
@@ -277,6 +314,7 @@ body {
     width: 18px;
     height: 18px;
     cursor: pointer;
+    accent-color: var(--success-color);
 }
 
 /* Mini timer */
@@ -333,11 +371,11 @@ body {
 .btn {
     padding: 12px 24px;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
 }
 
 .btn:disabled {
@@ -349,7 +387,7 @@ body {
     padding: 8px 14px;
     font-size: 0.85rem;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
     transition: all 0.2s ease;
@@ -362,7 +400,7 @@ body {
 
 .btn-primary {
     background: var(--primary-color);
-    color: white;
+    color: #fff8f4;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -371,22 +409,22 @@ body {
 
 .btn-secondary {
     background: var(--secondary-color);
-    color: white;
+    color: #fbfdfd;
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background: #2980b9;
+    background: var(--secondary-dark);
 }
 
 .btn-danger {
     background: transparent;
     color: var(--danger-color);
-    border: 2px solid var(--danger-color) !important;
+    border: 1.5px solid var(--danger-color) !important;
 }
 
 .btn-danger:hover:not(:disabled) {
     background: var(--danger-color);
-    color: white;
+    color: #fff8f4;
 }
 
 /* Extra blocks (phrases / review) */
@@ -411,8 +449,8 @@ body {
 
 .phrase-input {
     padding: 10px 12px;
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 10px;
     font-size: 0.9rem;
     background: var(--bg-color);
     color: var(--text-color);
@@ -444,6 +482,7 @@ body {
     height: 18px;
     cursor: pointer;
     flex-shrink: 0;
+    accent-color: var(--review-color);
 }
 
 .review-block .extra-label {
@@ -464,11 +503,12 @@ body {
 }
 
 .stat-card {
-    background: var(--card-bg);
+    background: var(--card-bg-solid);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: 16px;
     padding: 18px;
     text-align: center;
+    box-shadow: 0 2px 8px var(--shadow-color);
 }
 
 .stat-icon {
@@ -477,6 +517,7 @@ body {
 }
 
 .stat-value {
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Hiragino Mincho ProN', serif;
     font-size: 1.6rem;
     font-weight: 700;
     color: var(--primary-color);
@@ -491,7 +532,9 @@ body {
 /* Heatmap */
 .heatmap-card h3,
 .history-card h3 {
-    font-size: 1rem;
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Hiragino Mincho ProN', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
     margin-bottom: 14px;
 }
 
@@ -507,7 +550,7 @@ body {
 .heatmap-cell {
     width: 14px;
     height: 14px;
-    border-radius: 3px;
+    border-radius: 4px;
     background: var(--border-color);
 }
 
@@ -516,10 +559,10 @@ body {
 }
 
 .heatmap-cell.level-0 { background: var(--border-color); }
-.heatmap-cell.level-1 { background: #bfdbfe; }
-.heatmap-cell.level-2 { background: #60a5fa; }
-.heatmap-cell.level-3 { background: #2563eb; }
-.heatmap-cell.level-4 { background: #1d4ed8; }
+.heatmap-cell.level-1 { background: #ecc4b0; }
+.heatmap-cell.level-2 { background: #e0a183; }
+.heatmap-cell.level-3 { background: #cc785c; }
+.heatmap-cell.level-4 { background: #a85a41; }
 
 .heatmap-legend {
     display: flex;
@@ -533,18 +576,20 @@ body {
 .legend-dot {
     width: 12px;
     height: 12px;
-    border-radius: 3px;
+    border-radius: 4px;
 }
 
 .legend-dot.level-0 { background: var(--border-color); }
-.legend-dot.level-1 { background: #bfdbfe; }
-.legend-dot.level-2 { background: #60a5fa; }
-.legend-dot.level-3 { background: #2563eb; }
-.legend-dot.level-4 { background: #1d4ed8; }
+.legend-dot.level-1 { background: #ecc4b0; }
+.legend-dot.level-2 { background: #e0a183; }
+.legend-dot.level-3 { background: #cc785c; }
+.legend-dot.level-4 { background: #a85a41; }
 
 /* Backup / restore */
 .backup-card h3 {
-    font-size: 1rem;
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Hiragino Mincho ProN', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
     margin-bottom: 10px;
 }
 
@@ -602,7 +647,7 @@ body {
 
 @media (max-width: 480px) {
     .header h1 {
-        font-size: 1.5rem;
+        font-size: 1.6rem;
     }
 
     .session-timer {
