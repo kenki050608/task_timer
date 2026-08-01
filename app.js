@@ -177,35 +177,102 @@ function escapeAttr(text) {
 }
 
 // ---- Timers ----------------------------------------------------------------
+//
+// Timers are driven by a fixed end timestamp rather than a per-second
+// decrement, and that timestamp is persisted to localStorage. That way the
+// remaining time can always be recomputed from the real clock, so a page
+// reload (a new deploy, or the mobile browser suspending/killing the tab in
+// the background) doesn't lose progress on a timer that was running.
+
+const TIMER_STORAGE_KEY = 'englishLearningTrackerTimers';
+
+function persistTimers() {
+    const snapshot = {};
+    BLOCK_ORDER.forEach(key => {
+        const t = timers[key];
+        snapshot[key] = { total: t.total, running: t.running, endTime: t.endTime, remaining: t.remaining };
+    });
+    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+function freshTimer(blockKey) {
+    const total = BLOCK_CONFIG[blockKey].minutes * 60;
+    return { remaining: total, total, endTime: null, interval: null, running: false };
+}
 
 function initTimersForDate() {
     BLOCK_ORDER.forEach(key => {
         if (timers[key] && timers[key].interval) clearInterval(timers[key].interval);
-        const total = BLOCK_CONFIG[key].minutes * 60;
-        timers[key] = { remaining: total, total, interval: null, running: false };
+        timers[key] = freshTimer(key);
     });
+    localStorage.removeItem(TIMER_STORAGE_KEY);
+}
+
+function restoreTimers() {
+    let persisted = null;
+    try {
+        persisted = JSON.parse(localStorage.getItem(TIMER_STORAGE_KEY));
+    } catch (e) {
+        persisted = null;
+    }
+
+    BLOCK_ORDER.forEach(key => {
+        const saved = persisted && persisted[key];
+        const total = BLOCK_CONFIG[key].minutes * 60;
+        if (!saved || saved.total !== total) {
+            timers[key] = freshTimer(key);
+            return;
+        }
+        let remaining = saved.remaining;
+        let running = saved.running;
+        if (running && saved.endTime) {
+            remaining = Math.round((saved.endTime - Date.now()) / 1000);
+            if (remaining <= 0) {
+                remaining = 0;
+                running = false;
+            }
+        }
+        timers[key] = {
+            remaining: Math.max(0, remaining),
+            total,
+            endTime: running ? saved.endTime : null,
+            interval: null,
+            running: false
+        };
+        if (running) startTicking(key);
+    });
+}
+
+function startTicking(blockKey) {
+    const timer = timers[blockKey];
+    timer.running = true;
+    timer.interval = setInterval(() => {
+        const remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
+        timer.remaining = remaining;
+        updateTimerDisplay(blockKey);
+        if (remaining <= 0) completeBlockTimer(blockKey);
+    }, 1000);
 }
 
 function startBlockTimer(blockKey) {
     const timer = timers[blockKey];
     if (timer.running || timer.remaining <= 0) return;
-    timer.running = true;
-    timer.interval = setInterval(() => {
-        if (timer.remaining > 0) {
-            timer.remaining--;
-            updateTimerDisplay(blockKey);
-        } else {
-            completeBlockTimer(blockKey);
-        }
-    }, 1000);
+    timer.endTime = Date.now() + timer.remaining * 1000;
+    startTicking(blockKey);
+    persistTimers();
     updateTimerButtons(blockKey);
 }
 
 function pauseBlockTimer(blockKey) {
     const timer = timers[blockKey];
+    if (!timer.running) return;
     clearInterval(timer.interval);
     timer.interval = null;
+    timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
     timer.running = false;
+    timer.endTime = null;
+    persistTimers();
+    updateTimerDisplay(blockKey);
     updateTimerButtons(blockKey);
 }
 
@@ -214,7 +281,9 @@ function resetBlockTimer(blockKey) {
     clearInterval(timer.interval);
     timer.interval = null;
     timer.running = false;
+    timer.endTime = null;
     timer.remaining = timer.total;
+    persistTimers();
     updateTimerDisplay(blockKey);
     updateTimerButtons(blockKey);
 }
@@ -224,7 +293,9 @@ function completeBlockTimer(blockKey) {
     clearInterval(timer.interval);
     timer.interval = null;
     timer.running = false;
+    timer.endTime = null;
     timer.remaining = timer.total;
+    persistTimers();
     playNotificationSound();
     if (Notification.permission === 'granted') {
         new Notification('Study session complete!', {
@@ -677,7 +748,7 @@ function init() {
             navigator.serviceWorker.register('sw.js').catch(() => {});
         });
     }
-    initTimersForDate();
+    restoreTimers();
     setupEventListeners();
     renderToday();
 }
