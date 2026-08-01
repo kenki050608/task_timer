@@ -421,12 +421,6 @@ body {
     margin-bottom: 10px;
 }
 
-.phrase-inputs {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
 .phrase-input {
     padding: 10px 12px;
     border: 1.5px solid var(--border-color);
@@ -439,6 +433,109 @@ body {
 .phrase-input:focus {
     outline: none;
     border-color: var(--primary-color);
+}
+
+/* Vocabulary / idiom notebooks */
+.notebook-add-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.notebook-term-input {
+    flex: 1 1 110px;
+}
+
+.notebook-note-input {
+    flex: 2 1 160px;
+}
+
+.notebook-add-btn {
+    flex-shrink: 0;
+}
+
+.notebook-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.notebook-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    padding: 8px 10px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.notebook-term {
+    font-weight: 600;
+}
+
+.notebook-note {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.notebook-date {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-left: auto;
+}
+
+.notebook-delete {
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.notebook-item .notebook-date + .notebook-delete {
+    margin-left: 0;
+}
+
+.notebook-delete:hover {
+    background: var(--danger-color);
+    color: #fff8f4;
+}
+
+.notebook-card h3 {
+    font-family: 'Shippori Mincho', Georgia, 'Hiragino Mincho ProN', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 14px;
+}
+
+.notebook-list-wrap {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.notebook-list-full {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.notebook-list-full .notebook-item-full {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .review-phrase-list,
@@ -614,12 +711,14 @@ body {
 
 /* Scrollbar */
 .history-table-wrap::-webkit-scrollbar,
+.notebook-list-wrap::-webkit-scrollbar,
 .heatmap::-webkit-scrollbar {
     height: 6px;
     width: 6px;
 }
 
 .history-table-wrap::-webkit-scrollbar-thumb,
+.notebook-list-wrap::-webkit-scrollbar-thumb,
 .heatmap::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: 3px;

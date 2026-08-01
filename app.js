@@ -16,7 +16,7 @@ const BLOCK_CONFIG = {
     },
     studysapuri: {
         title: 'Studysapuri Business',
-        subtitle: 'Input, dictation & key phrase extraction',
+        subtitle: 'Input, dictation & vocabulary/idiom logging',
         minutes: 45
     },
     shadowing: {
@@ -26,9 +26,15 @@ const BLOCK_CONFIG = {
     },
     speak: {
         title: 'Speak',
-        subtitle: 'Put your key phrases into practice via AI conversation',
+        subtitle: 'Put your vocabulary & idioms into practice via AI conversation',
         minutes: 30
     }
+};
+
+const NOTEBOOK_TYPES = ['vocab', 'idioms'];
+const NOTEBOOK_CONFIG = {
+    vocab: { label: 'Vocabulary Notebook', icon: '📕', termPlaceholder: 'Word', notePlaceholder: 'Meaning (optional)' },
+    idioms: { label: 'Idiom Notebook', icon: '📗', termPlaceholder: 'Idiom / phrase', notePlaceholder: 'Meaning (optional)' }
 };
 
 const TOTAL_MINUTES = BLOCK_ORDER.reduce((sum, key) => sum + BLOCK_CONFIG[key].minutes, 0);
@@ -38,6 +44,7 @@ const MINI_CIRCUMFERENCE = 2 * Math.PI * 34;
 let state = loadState();
 let currentDate = startOfDay(new Date());
 let currentTab = 'today';
+let trackedTodayKey = getDateKey(new Date());
 const timers = {};
 
 // DOM Elements
@@ -54,6 +61,8 @@ const sessionList = document.getElementById('sessionList');
 const statsGrid = document.getElementById('statsGrid');
 const heatmap = document.getElementById('heatmap');
 const historyTableBody = document.getElementById('historyTableBody');
+const vocabNotebookFull = document.getElementById('vocabNotebookFull');
+const idiomNotebookFull = document.getElementById('idiomNotebookFull');
 const exportBtn = document.getElementById('exportBtn');
 const importBtn = document.getElementById('importBtn');
 const importFileInput = document.getElementById('importFileInput');
@@ -63,11 +72,15 @@ const importFileInput = document.getElementById('importFileInput');
 function loadState() {
     try {
         const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if (raw && raw.logs) return raw;
+        if (raw && raw.logs) {
+            if (!Array.isArray(raw.vocab)) raw.vocab = [];
+            if (!Array.isArray(raw.idioms)) raw.idioms = [];
+            return raw;
+        }
     } catch (e) {
         // ignore malformed data and fall back to a fresh state
     }
-    return { logs: {} };
+    return { logs: {}, vocab: [], idioms: [] };
 }
 
 function saveState() {
@@ -79,8 +92,6 @@ function defaultLog() {
     BLOCK_ORDER.forEach(key => { blocks[key] = { done: false }; });
     return {
         blocks,
-        phrases: ['', '', ''],
-        phrasesUsed: [false, false, false],
         isReviewDay: false,
         reviewChecks: {}
     };
@@ -93,6 +104,10 @@ function getLogOrDefault(dateKey) {
 function ensureLog(dateKey) {
     if (!state.logs[dateKey]) state.logs[dateKey] = defaultLog();
     return state.logs[dateKey];
+}
+
+function makeId() {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
 // ---- Date helpers ---------------------------------------------------------
@@ -149,17 +164,21 @@ function calcSessionsCompleted(log) {
     return BLOCK_ORDER.filter(key => log.blocks[key].done).length;
 }
 
-function getWeekPhrases(weekKey) {
-    const set = new Set();
-    Object.keys(state.logs).forEach(dateKey => {
-        if (getWeekKey(dateFromKey(dateKey)) === weekKey) {
-            const log = state.logs[dateKey];
-            (log.phrases || []).forEach(p => {
-                if (p && p.trim()) set.add(p.trim());
-            });
-        }
+function getDayEntries(dateKey, type) {
+    return (state[type] || []).filter(entry => entry.dateKey === dateKey);
+}
+
+function getWeekEntries(weekKey) {
+    const entries = [];
+    NOTEBOOK_TYPES.forEach(type => {
+        (state[type] || []).forEach(entry => {
+            if (getWeekKey(dateFromKey(entry.dateKey)) === weekKey) {
+                entries.push({ ...entry, type });
+            }
+        });
     });
-    return Array.from(set);
+    entries.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+    return entries;
 }
 
 function escapeHtml(text) {
@@ -179,18 +198,21 @@ function escapeAttr(text) {
 // ---- Timers ----------------------------------------------------------------
 //
 // Timers are driven by a fixed end timestamp rather than a per-second
-// decrement, and that timestamp is persisted to localStorage. That way the
-// remaining time can always be recomputed from the real clock, so a page
-// reload (a new deploy, or the mobile browser suspending/killing the tab in
-// the background) doesn't lose progress on a timer that was running.
+// decrement, and that timestamp (plus the calendar day it belongs to) is
+// persisted to localStorage. That way the remaining time can always be
+// recomputed from the real clock, so a page reload (a new deploy, or the
+// mobile browser suspending/killing the tab in the background) doesn't lose
+// progress on a timer that was running. Since the timers represent a single
+// day's 120-minute routine, any persisted state from a previous calendar day
+// is discarded rather than restored.
 
 const TIMER_STORAGE_KEY = 'englishLearningTrackerTimers';
 
 function persistTimers() {
-    const snapshot = {};
+    const snapshot = { savedDateKey: getDateKey(new Date()), timers: {} };
     BLOCK_ORDER.forEach(key => {
         const t = timers[key];
-        snapshot[key] = { total: t.total, running: t.running, endTime: t.endTime, remaining: t.remaining };
+        snapshot.timers[key] = { total: t.total, running: t.running, endTime: t.endTime, remaining: t.remaining };
     });
     localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(snapshot));
 }
@@ -216,8 +238,16 @@ function restoreTimers() {
         persisted = null;
     }
 
+    const todayKey = getDateKey(new Date());
+    if (!persisted || persisted.savedDateKey !== todayKey) {
+        // No saved state, or it belongs to a previous day — start the day fresh.
+        BLOCK_ORDER.forEach(key => { timers[key] = freshTimer(key); });
+        localStorage.removeItem(TIMER_STORAGE_KEY);
+        return;
+    }
+
     BLOCK_ORDER.forEach(key => {
-        const saved = persisted && persisted[key];
+        const saved = persisted.timers[key];
         const total = BLOCK_CONFIG[key].minutes * 60;
         if (!saved || saved.total !== total) {
             timers[key] = freshTimer(key);
@@ -241,6 +271,16 @@ function restoreTimers() {
         };
         if (running) startTicking(key);
     });
+}
+
+function checkDateRollover() {
+    const todayKey = getDateKey(new Date());
+    if (todayKey === trackedTodayKey) return;
+    const wasViewingToday = getDateKey(currentDate) === trackedTodayKey;
+    trackedTodayKey = todayKey;
+    initTimersForDate();
+    if (wasViewingToday) currentDate = startOfDay(new Date());
+    renderToday();
 }
 
 function startTicking(blockKey) {
@@ -356,16 +396,25 @@ function toggleDone(blockKey, checked) {
     renderToday();
 }
 
-function updatePhrase(index, value) {
-    const log = ensureLog(getDateKey(currentDate));
-    log.phrases[index] = value;
+function addNotebookEntry(type, term, note) {
+    const trimmedTerm = (term || '').trim();
+    if (!trimmedTerm) return;
+    const entry = { id: makeId(), term: trimmedTerm, note: (note || '').trim(), dateKey: getDateKey(currentDate), used: false };
+    state[type].push(entry);
     saveState();
-    refreshSpeakCard();
+    renderToday();
 }
 
-function togglePhraseUsed(index, checked) {
-    const log = ensureLog(getDateKey(currentDate));
-    log.phrasesUsed[index] = checked;
+function deleteNotebookEntry(type, id) {
+    state[type] = state[type].filter(entry => entry.id !== id);
+    saveState();
+    renderToday();
+    if (currentTab === 'cumulative') renderCumulative();
+}
+
+function toggleNotebookUsed(type, id, checked) {
+    const entry = (state[type] || []).find(e => e.id === id);
+    if (entry) entry.used = checked;
     saveState();
 }
 
@@ -374,18 +423,19 @@ function toggleReviewDay(checked) {
     const log = ensureLog(dateKey);
     log.isReviewDay = checked;
     if (checked) {
-        const weekPhrases = getWeekPhrases(getWeekKey(currentDate));
-        weekPhrases.forEach(p => {
-            if (!(p in log.reviewChecks)) log.reviewChecks[p] = false;
+        const weekEntries = getWeekEntries(getWeekKey(currentDate));
+        weekEntries.forEach(entry => {
+            const key = `${entry.type}:${entry.id}`;
+            if (!(key in log.reviewChecks)) log.reviewChecks[key] = false;
         });
     }
     saveState();
     renderToday();
 }
 
-function toggleReviewCheck(phrase, checked) {
+function toggleReviewCheck(entryKey, checked) {
     const log = ensureLog(getDateKey(currentDate));
-    log.reviewChecks[phrase] = checked;
+    log.reviewChecks[entryKey] = checked;
     saveState();
     renderToday();
 }
@@ -402,69 +452,89 @@ function changeDate(delta) {
 
 // ---- Rendering: Today view ----------------------------------------------
 
-function buildStudysapuriExtra(log, isReview) {
-    if (isReview) {
-        const weekPhrases = getWeekPhrases(getWeekKey(currentDate));
-        if (weekPhrases.length === 0) {
-            return `<div class="extra-block"><p class="empty-note">No key phrases logged yet this week.</p></div>`;
-        }
-        const checkedCount = weekPhrases.filter(p => log.reviewChecks[p]).length;
-        return `
-            <div class="extra-block review-block">
-                <p class="extra-label">📘 Weekly phrase review (${checkedCount}/${weekPhrases.length})</p>
-                <ul class="review-phrase-list">
-                    ${weekPhrases.map(p => `
-                        <li>
-                            <label class="review-check">
-                                <input type="checkbox" class="review-check-input" data-phrase="${escapeAttr(p)}" ${log.reviewChecks[p] ? 'checked' : ''}>
-                                <span>${escapeHtml(p)}</span>
-                            </label>
-                        </li>`).join('')}
-                </ul>
-            </div>`;
-    }
+function renderNotebookListItem(entry, type) {
+    return `
+        <li class="notebook-item" data-type="${type}" data-id="${entry.id}">
+            <span class="notebook-term">${escapeHtml(entry.term)}</span>${entry.note ? ` <span class="notebook-note">— ${escapeHtml(entry.note)}</span>` : ''}
+            <button class="notebook-delete" data-type="${type}" data-id="${entry.id}" aria-label="Delete">×</button>
+        </li>`;
+}
+
+function renderNotebookBlock(type) {
+    const cfg = NOTEBOOK_CONFIG[type];
+    const entries = getDayEntries(getDateKey(currentDate), type);
+    const listHtml = entries.length === 0
+        ? `<p class="empty-note">No entries added yet today.</p>`
+        : `<ul class="notebook-list">${entries.map(e => renderNotebookListItem(e, type)).join('')}</ul>`;
+
     return `
         <div class="extra-block">
-            <p class="extra-label">✏️ Key phrases to use next (up to 3/day)</p>
-            <div class="phrase-inputs">
-                ${[0, 1, 2].map(i => `
-                    <input type="text" class="phrase-input" data-index="${i}" placeholder="Key phrase ${i + 1}" value="${escapeAttr(log.phrases[i] || '')}">
-                `).join('')}
+            <div class="notebook-block" data-type="${type}">
+                <p class="extra-label">${cfg.icon} ${cfg.label}</p>
+                <div class="notebook-add-row">
+                    <input type="text" class="phrase-input notebook-term-input" data-type="${type}" placeholder="${cfg.termPlaceholder}">
+                    <input type="text" class="phrase-input notebook-note-input" data-type="${type}" placeholder="${cfg.notePlaceholder}">
+                    <button class="btn-small btn-primary notebook-add-btn" data-type="${type}">Add</button>
+                </div>
+                ${listHtml}
             </div>
         </div>`;
 }
 
+function buildStudysapuriExtra(log, isReview) {
+    if (isReview) {
+        const weekEntries = getWeekEntries(getWeekKey(currentDate));
+        if (weekEntries.length === 0) {
+            return `<div class="extra-block"><p class="empty-note">No vocabulary or idioms logged yet this week.</p></div>`;
+        }
+        const checkedCount = weekEntries.filter(e => log.reviewChecks[`${e.type}:${e.id}`]).length;
+        return `
+            <div class="extra-block review-block">
+                <p class="extra-label">📘 Weekly review (${checkedCount}/${weekEntries.length})</p>
+                <ul class="review-phrase-list">
+                    ${weekEntries.map(e => {
+                        const key = `${e.type}:${e.id}`;
+                        return `
+                        <li>
+                            <label class="review-check">
+                                <input type="checkbox" class="review-check-input" data-key="${escapeAttr(key)}" ${log.reviewChecks[key] ? 'checked' : ''}>
+                                <span>${NOTEBOOK_CONFIG[e.type].icon} ${escapeHtml(e.term)}${e.note ? ` — ${escapeHtml(e.note)}` : ''}</span>
+                            </label>
+                        </li>`;
+                    }).join('')}
+                </ul>
+            </div>`;
+    }
+    return NOTEBOOK_TYPES.map(renderNotebookBlock).join('');
+}
+
 function buildSpeakExtra(log, isReview) {
     if (isReview) {
-        const weekPhrases = getWeekPhrases(getWeekKey(currentDate));
-        const checkedCount = weekPhrases.filter(p => log.reviewChecks[p]).length;
-        return `<div class="extra-block"><p class="extra-label">🔁 Review day: retest this week's phrases in conversation (${checkedCount}/${weekPhrases.length})</p></div>`;
+        const weekEntries = getWeekEntries(getWeekKey(currentDate));
+        const checkedCount = weekEntries.filter(e => log.reviewChecks[`${e.type}:${e.id}`]).length;
+        return `<div class="extra-block"><p class="extra-label">🔁 Review day: retest this week's vocabulary & idioms in conversation (${checkedCount}/${weekEntries.length})</p></div>`;
     }
-    const nonEmpty = log.phrases.filter(p => p && p.trim());
-    if (nonEmpty.length === 0) {
-        return `<div class="extra-block"><p class="empty-note">Phrases you log in Studysapuri will appear here.</p></div>`;
+    const dateKey = getDateKey(currentDate);
+    const entries = [
+        ...getDayEntries(dateKey, 'vocab').map(e => ({ ...e, type: 'vocab' })),
+        ...getDayEntries(dateKey, 'idioms').map(e => ({ ...e, type: 'idioms' }))
+    ];
+    if (entries.length === 0) {
+        return `<div class="extra-block"><p class="empty-note">Words and idioms you log in Studysapuri will appear here.</p></div>`;
     }
     return `
         <div class="extra-block">
             <p class="extra-label">💬 Use in conversation</p>
             <ul class="speak-phrase-list">
-                ${log.phrases.map((p, i) => (p && p.trim()) ? `
+                ${entries.map(e => `
                     <li>
                         <label class="review-check">
-                            <input type="checkbox" class="phrase-used-input" data-index="${i}" ${log.phrasesUsed[i] ? 'checked' : ''}>
-                            <span>${escapeHtml(p)}</span>
+                            <input type="checkbox" class="phrase-used-input" data-type="${e.type}" data-id="${e.id}" ${e.used ? 'checked' : ''}>
+                            <span>${NOTEBOOK_CONFIG[e.type].icon} ${escapeHtml(e.term)}${e.note ? ` — ${escapeHtml(e.note)}` : ''}</span>
                         </label>
-                    </li>` : '').join('')}
+                    </li>`).join('')}
             </ul>
         </div>`;
-}
-
-function refreshSpeakCard() {
-    const dateKey = getDateKey(currentDate);
-    const log = getLogOrDefault(dateKey);
-    const isReview = log.isReviewDay;
-    const card = document.querySelector('.session-card[data-block="speak"] .extra-block-wrap');
-    if (card) card.innerHTML = buildSpeakExtra(log, isReview);
 }
 
 function renderSessionCard(blockKey, log, isReview) {
@@ -474,9 +544,9 @@ function renderSessionCard(blockKey, log, isReview) {
 
     let extraHtml = '';
     if (blockKey === 'studysapuri') extraHtml = buildStudysapuriExtra(log, isReview);
-    if (blockKey === 'speak') extraHtml = `<div class="extra-block-wrap">${buildSpeakExtra(log, isReview)}</div>`;
+    if (blockKey === 'speak') extraHtml = buildSpeakExtra(log, isReview);
 
-    const subtitle = (isReview && blockKey === 'studysapuri') ? 'Phrase review & retest' : cfg.subtitle;
+    const subtitle = (isReview && blockKey === 'studysapuri') ? 'Vocabulary & idiom review' : cfg.subtitle;
 
     return `
         <div class="session-card ${done ? 'done' : ''}" data-block="${blockKey}">
@@ -576,7 +646,6 @@ function renderStatsGrid() {
     const daysStudied = allLogs.filter(isLogStudied).length;
     const totalMinutes = allLogs.reduce((sum, log) => sum + calcMinutes(log), 0);
     const totalHours = (totalMinutes / 60).toFixed(1);
-    const totalPhrases = allLogs.reduce((sum, log) => sum + log.phrases.filter(p => p && p.trim()).length, 0);
     const reviewDays = allLogs.filter(log => log.isReviewDay).length;
 
     const stats = [
@@ -584,7 +653,8 @@ function renderStatsGrid() {
         { icon: '🏆', value: computeLongestStreak(), label: 'Longest Streak' },
         { icon: '📚', value: daysStudied, label: 'Total Study Days' },
         { icon: '⏱️', value: `${totalHours}h`, label: 'Total Study Time' },
-        { icon: '💡', value: totalPhrases, label: 'Total Phrases Logged' },
+        { icon: '📕', value: (state.vocab || []).length, label: 'Vocabulary Logged' },
+        { icon: '📗', value: (state.idioms || []).length, label: 'Idioms Logged' },
         { icon: '🔁', value: reviewDays, label: 'Review Days Completed' }
     ];
 
@@ -629,22 +699,38 @@ function renderHistoryTable() {
         const log = state.logs[dateKey];
         const completed = calcSessionsCompleted(log);
         const minutes = calcMinutes(log);
-        const phraseCount = log.phrases.filter(p => p && p.trim()).length;
+        const wordCount = getDayEntries(dateKey, 'vocab').length + getDayEntries(dateKey, 'idioms').length;
         return `
             <tr>
                 <td>${formatDateLabel(dateFromKey(dateKey))}</td>
                 <td>${completed} / 4</td>
                 <td>${minutes} min</td>
-                <td>${phraseCount}</td>
+                <td>${wordCount}</td>
                 <td>${log.isReviewDay ? '✓' : '-'}</td>
             </tr>`;
     }).join('');
+}
+
+function renderNotebookFullList(type, containerEl) {
+    const entries = [...(state[type] || [])].sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+    if (entries.length === 0) {
+        containerEl.innerHTML = `<li class="empty-note">No entries yet</li>`;
+        return;
+    }
+    containerEl.innerHTML = entries.map(e => `
+        <li class="notebook-item notebook-item-full" data-type="${type}" data-id="${e.id}">
+            <span class="notebook-term">${escapeHtml(e.term)}</span>${e.note ? ` <span class="notebook-note">— ${escapeHtml(e.note)}</span>` : ''}
+            <span class="notebook-date">${formatDateLabel(dateFromKey(e.dateKey))}</span>
+            <button class="notebook-delete" data-type="${type}" data-id="${e.id}" aria-label="Delete">×</button>
+        </li>`).join('');
 }
 
 function renderCumulative() {
     renderStatsGrid();
     renderHeatmap();
     renderHistoryTable();
+    renderNotebookFullList('vocab', vocabNotebookFull);
+    renderNotebookFullList('idioms', idiomNotebookFull);
 }
 
 // ---- Backup / restore ------------------------------------------------------
@@ -677,6 +763,8 @@ function importData(file) {
         }
         if (!confirm('This will overwrite this device\'s records with the selected file. Continue?')) return;
         state = parsed;
+        if (!Array.isArray(state.vocab)) state.vocab = [];
+        if (!Array.isArray(state.idioms)) state.idioms = [];
         saveState();
         initTimersForDate();
         renderToday();
@@ -687,6 +775,14 @@ function importData(file) {
 }
 
 // ---- Event wiring --------------------------------------------------------
+
+function submitNotebookEntry(type) {
+    const block = sessionList.querySelector(`.notebook-block[data-type="${type}"]`);
+    if (!block) return;
+    const termInput = block.querySelector('.notebook-term-input');
+    const noteInput = block.querySelector('.notebook-note-input');
+    addNotebookEntry(type, termInput.value, noteInput.value);
+}
 
 function setupEventListeners() {
     tabBtns.forEach(btn => {
@@ -710,22 +806,35 @@ function setupEventListeners() {
         if (pauseBtn) { pauseBlockTimer(pauseBtn.dataset.block); return; }
         const resetBtn = e.target.closest('.timer-reset');
         if (resetBtn) { resetBlockTimer(resetBtn.dataset.block); return; }
+        const addBtn = e.target.closest('.notebook-add-btn');
+        if (addBtn) { submitNotebookEntry(addBtn.dataset.type); return; }
+        const delBtn = e.target.closest('.notebook-delete');
+        if (delBtn) { deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id); return; }
+    });
+
+    sessionList.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const input = e.target.closest('.notebook-term-input, .notebook-note-input');
+        if (!input) return;
+        e.preventDefault();
+        submitNotebookEntry(input.dataset.type);
     });
 
     sessionList.addEventListener('change', (e) => {
         if (e.target.classList.contains('done-input')) {
             toggleDone(e.target.dataset.block, e.target.checked);
         } else if (e.target.classList.contains('phrase-used-input')) {
-            togglePhraseUsed(parseInt(e.target.dataset.index, 10), e.target.checked);
+            toggleNotebookUsed(e.target.dataset.type, e.target.dataset.id, e.target.checked);
         } else if (e.target.classList.contains('review-check-input')) {
-            toggleReviewCheck(e.target.dataset.phrase, e.target.checked);
+            toggleReviewCheck(e.target.dataset.key, e.target.checked);
         }
     });
 
-    sessionList.addEventListener('input', (e) => {
-        if (e.target.classList.contains('phrase-input')) {
-            updatePhrase(parseInt(e.target.dataset.index, 10), e.target.value);
-        }
+    [vocabNotebookFull, idiomNotebookFull].forEach(el => {
+        el.addEventListener('click', (e) => {
+            const delBtn = e.target.closest('.notebook-delete');
+            if (delBtn) deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id);
+        });
     });
 
     exportBtn.addEventListener('click', exportData);
@@ -734,6 +843,10 @@ function setupEventListeners() {
         const file = e.target.files[0];
         if (file) importData(file);
         importFileInput.value = '';
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) checkDateRollover();
     });
 }
 
