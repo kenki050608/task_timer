@@ -6,9 +6,9 @@
 
 :root {
     color-scheme: light;
-    --primary-color: #cc785c;
-    --primary-dark: #b35f45;
-    --primary-soft: rgba(204, 120, 92, 0.12);
+    --primary-color: #1b4332;
+    --primary-dark: #122e22;
+    --primary-soft: rgba(27, 67, 50, 0.12);
     --secondary-color: #6a8a94;
     --secondary-dark: #56727a;
     --success-color: #7a8c67;
@@ -689,10 +689,10 @@ body {
 }
 
 .heatmap-cell.level-0 { background: var(--border-color); }
-.heatmap-cell.level-1 { background: #ecc4b0; }
-.heatmap-cell.level-2 { background: #e0a183; }
-.heatmap-cell.level-3 { background: #cc785c; }
-.heatmap-cell.level-4 { background: #a85a41; }
+.heatmap-cell.level-1 { background: #cfe3d6; }
+.heatmap-cell.level-2 { background: #8fbca0; }
+.heatmap-cell.level-3 { background: #4c8a68; }
+.heatmap-cell.level-4 { background: #1b4332; }
 
 .heatmap-legend {
     display: flex;
@@ -710,10 +710,10 @@ body {
 }
 
 .legend-dot.level-0 { background: var(--border-color); }
-.legend-dot.level-1 { background: #ecc4b0; }
-.legend-dot.level-2 { background: #e0a183; }
-.legend-dot.level-3 { background: #cc785c; }
-.legend-dot.level-4 { background: #a85a41; }
+.legend-dot.level-1 { background: #cfe3d6; }
+.legend-dot.level-2 { background: #8fbca0; }
+.legend-dot.level-3 { background: #4c8a68; }
+.legend-dot.level-4 { background: #1b4332; }
 
 /* Backup / restore */
 .backup-card h3 {
