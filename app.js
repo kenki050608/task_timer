@@ -561,7 +561,7 @@ function buildSpeakExtra(log, isReview) {
         ...getDayEntries(dateKey, 'idioms').map(e => ({ ...e, type: 'idioms' }))
     ];
     if (entries.length === 0) {
-        return `<div class="extra-block"><p class="empty-note">Words and idioms logged in the Notebooks tab will appear here.</p></div>`;
+        return '';
     }
     return `
         <div class="extra-block">
