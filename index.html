@@ -3,59 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>タスク管理 - ポモドーロタイマー</title>
+    <title>ビジネス英語学習トラッカー</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="app">
         <header class="header">
-            <h1>タスク管理</h1>
+            <h1>ビジネス英語学習トラッカー</h1>
+            <p class="subtitle">英語耳 × スタディサプリ × Speak — 1日120分の学習管理</p>
+            <nav class="tabs">
+                <button class="tab-btn active" data-tab="today">📅 今日の学習</button>
+                <button class="tab-btn" data-tab="cumulative">📊 累積の記録</button>
+            </nav>
         </header>
 
         <main class="main">
-            <section class="timer-section">
-                <div class="timer-container">
-                    <svg class="timer-svg" viewBox="0 0 200 200">
-                        <circle class="timer-bg" cx="100" cy="100" r="90"></circle>
-                        <circle class="timer-progress" cx="100" cy="100" r="90" id="timerProgress"></circle>
-                    </svg>
-                    <div class="timer-display">
-                        <span id="timerMinutes">25</span>:<span id="timerSeconds">00</span>
+            <section id="todayView" class="view active">
+                <div class="date-nav card">
+                    <button class="btn-icon" id="prevDayBtn" aria-label="前の日">◀</button>
+                    <div class="date-nav-center">
+                        <div class="date-label" id="currentDateLabel"></div>
+                        <label class="review-toggle">
+                            <input type="checkbox" id="reviewDayToggle">
+                            <span>この日を復習日にする（週1回・新規進行ストップ）</span>
+                        </label>
+                    </div>
+                    <button class="btn-icon" id="nextDayBtn" aria-label="次の日">▶</button>
+                </div>
+
+                <div class="progress-summary card">
+                    <div class="progress-summary-top">
+                        <div class="progress-stat">
+                            <span class="progress-value" id="minutesTodayLabel">0</span>
+                            <span class="progress-label">/ 120分</span>
+                        </div>
+                        <div class="progress-stat-small" id="sessionsCompletedLabel">完了セッション: 0 / 4</div>
+                    </div>
+                    <div class="progress-bar-track">
+                        <div class="progress-bar-fill" id="progressBarFill"></div>
                     </div>
                 </div>
 
-                <div class="timer-controls">
-                    <button class="btn btn-primary" id="startBtn">開始</button>
-                    <button class="btn btn-secondary" id="pauseBtn" disabled>一時停止</button>
-                    <button class="btn btn-danger" id="resetBtn">リセット</button>
-                </div>
-
-                <div class="timer-modes">
-                    <button class="mode-btn active" data-minutes="25">作業 (25分)</button>
-                    <button class="mode-btn" data-minutes="5">短い休憩 (5分)</button>
-                    <button class="mode-btn" data-minutes="15">長い休憩 (15分)</button>
-                </div>
-
-                <div class="custom-time">
-                    <label for="customMinutes">カスタム時間:</label>
-                    <input type="number" id="customMinutes" min="1" max="120" value="25" class="custom-time-input">
-                    <span>分</span>
-                    <button class="btn btn-small" id="setCustomTimeBtn">設定</button>
-                </div>
-
-                <div class="current-task" id="currentTask">
-                    <p>タスクを選択してください</p>
-                </div>
+                <div class="session-list" id="sessionList"></div>
             </section>
 
-            <section class="tasks-section">
-                <div class="task-input-container">
-                    <input type="text" id="taskInput" placeholder="新しいタスクを入力..." class="task-input">
-                    <button class="btn btn-primary" id="addTaskBtn">追加</button>
+            <section id="cumulativeView" class="view">
+                <div class="stats-grid" id="statsGrid"></div>
+
+                <div class="card heatmap-card">
+                    <h3>学習ヒートマップ（直近12週間）</h3>
+                    <div class="heatmap" id="heatmap"></div>
+                    <div class="heatmap-legend">
+                        <span>少</span>
+                        <span class="legend-dot level-0"></span>
+                        <span class="legend-dot level-1"></span>
+                        <span class="legend-dot level-2"></span>
+                        <span class="legend-dot level-3"></span>
+                        <span class="legend-dot level-4"></span>
+                        <span>多</span>
+                    </div>
                 </div>
 
-                <ul class="task-list" id="taskList">
-                </ul>
+                <div class="card history-card">
+                    <h3>学習履歴</h3>
+                    <div class="history-table-wrap">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>日付</th>
+                                    <th>セッション</th>
+                                    <th>学習時間</th>
+                                    <th>フレーズ</th>
+                                    <th>復習日</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
         </main>
     </div>
