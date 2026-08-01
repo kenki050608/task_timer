@@ -596,14 +596,17 @@ function renderSessionCard(blockKey, log, isReview) {
                 <div class="session-title">
                     <span class="session-index">${index}</span>
                     <div>
-                        <h3>${titleHtml} <span class="session-minutes">(${cfg.minutes} min)</span></h3>
+                        <h3>${titleHtml}</h3>
                         <p class="session-subtitle">${subtitle}</p>
                     </div>
                 </div>
-                <label class="done-checkbox">
-                    <input type="checkbox" class="done-input" data-block="${blockKey}" ${done ? 'checked' : ''}>
-                    <span>Done</span>
-                </label>
+                <div class="session-done-col">
+                    <label class="done-checkbox">
+                        <input type="checkbox" class="done-input" data-block="${blockKey}" ${done ? 'checked' : ''}>
+                        <span>Done</span>
+                    </label>
+                    <span class="session-minutes">(${cfg.minutes} min)</span>
+                </div>
             </div>
             <div class="session-timer">
                 <div class="mini-timer">
