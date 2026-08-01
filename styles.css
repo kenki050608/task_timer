@@ -14,13 +14,13 @@
     --success-soft: rgba(122, 140, 103, 0.12);
     --danger-color: #b3492f;
     --review-color: #90618a;
-    --bg-color: #faf9f5;
-    --card-bg: #f0eee6;
-    --card-bg-solid: #fffdf9;
+    --bg-color: #fdfcf9;
+    --card-bg: #f6f4ee;
+    --card-bg-solid: #fffefb;
     --text-color: #3d3929;
     --text-muted: #83807c;
-    --border-color: #e5e2d8;
-    --shadow-color: rgba(61, 57, 41, 0.06);
+    --border-color: #ebe8de;
+    --shadow-color: rgba(61, 57, 41, 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
