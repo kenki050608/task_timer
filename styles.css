@@ -278,6 +278,17 @@ body {
     font-size: 0.85rem;
 }
 
+.session-logo {
+    height: 22px;
+    width: 22px;
+    vertical-align: middle;
+    border-radius: 5px;
+    background: #ffffff;
+    padding: 2px;
+    object-fit: contain;
+    border: 1px solid var(--border-color);
+}
+
 .session-subtitle {
     font-size: 0.85rem;
     color: var(--text-muted);

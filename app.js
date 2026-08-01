@@ -12,12 +12,14 @@ const BLOCK_CONFIG = {
     eigomimi: {
         title: 'Eigo Mimi',
         subtitle: 'Pronunciation warm-up & sound training',
-        minutes: 15
+        minutes: 15,
+        logoUrl: 'https://icons.duckduckgo.com/ip3/eigomimi.info.ico'
     },
     studysapuri: {
         title: 'Studysapuri Business',
         subtitle: 'Input, dictation & vocabulary/idiom logging',
-        minutes: 45
+        minutes: 45,
+        logoUrl: 'https://icons.duckduckgo.com/ip3/eigosapuri.jp.ico'
     },
     shadowing: {
         title: 'Shadowing',
@@ -27,7 +29,8 @@ const BLOCK_CONFIG = {
     speak: {
         title: 'Speak',
         subtitle: 'Put your vocabulary & idioms into practice via AI conversation',
-        minutes: 30
+        minutes: 30,
+        logoUrl: 'https://icons.duckduckgo.com/ip3/speak.com.ico'
     }
 };
 
@@ -196,6 +199,10 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function handleLogoError(imgEl) {
+    imgEl.replaceWith(document.createTextNode(imgEl.alt));
 }
 
 function escapeAttr(text) {
@@ -564,6 +571,9 @@ function renderSessionCard(blockKey, log, isReview) {
 
     const extraHtml = blockKey === 'speak' ? buildSpeakExtra(log, isReview) : '';
     const subtitle = (isReview && blockKey === 'studysapuri') ? 'Vocabulary & idiom review' : cfg.subtitle;
+    const titleHtml = cfg.logoUrl
+        ? `<img src="${escapeAttr(cfg.logoUrl)}" alt="${escapeAttr(cfg.title)}" title="${escapeAttr(cfg.title)}" class="session-logo" onerror="handleLogoError(this)">`
+        : cfg.title;
 
     return `
         <div class="session-card ${done ? 'done' : ''}" data-block="${blockKey}">
@@ -571,7 +581,7 @@ function renderSessionCard(blockKey, log, isReview) {
                 <div class="session-title">
                     <span class="session-index">${index}</span>
                     <div>
-                        <h3>${cfg.title} <span class="session-minutes">(${cfg.minutes} min)</span></h3>
+                        <h3>${titleHtml} <span class="session-minutes">(${cfg.minutes} min)</span></h3>
                         <p class="session-subtitle">${subtitle}</p>
                     </div>
                 </div>
