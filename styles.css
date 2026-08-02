@@ -372,18 +372,11 @@ body {
     flex-wrap: wrap;
 }
 
-.timer-status {
-    flex: 1 1 100%;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-.timer-status.running {
-    color: var(--success-color);
-}
-
-.timer-status.stopped {
-    color: var(--text-muted);
+.btn-pressed.timer-start:disabled,
+.btn-pressed.timer-pause:disabled {
+    opacity: 1;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.35);
+    filter: brightness(0.85);
 }
 
 .btn {
