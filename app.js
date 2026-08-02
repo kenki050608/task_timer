@@ -159,8 +159,9 @@ function formatDateLabel(date) {
 }
 
 function formatMMSS(totalSeconds) {
-    const m = Math.floor(totalSeconds / 60);
-    const s = totalSeconds % 60;
+    const rounded = Math.floor(totalSeconds);
+    const m = Math.floor(rounded / 60);
+    const s = rounded % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
@@ -172,13 +173,9 @@ function formatMinutesValue(minutes) {
 // ---- Derived data ----------------------------------------------------------
 
 function calcBlockSeconds(log, blockKey) {
-    const total = BLOCK_CONFIG[blockKey].minutes * 60;
-    const block = log.blocks[blockKey];
-    const spent = block.secondsSpent || 0;
-    // Once done, credit at least the full block duration, but don't cap it there —
-    // studying beyond the nominal time (e.g. running Eigo Mimi again after finishing
-    // it) should still count the extra time toward the day's and cumulative totals.
-    return block.done ? Math.max(total, spent) : spent;
+    // Study time is only ever written when the End button is pressed — Done is
+    // purely a "this item is finished" marker and never affects the time count.
+    return log.blocks[blockKey].secondsSpent || 0;
 }
 
 function calcMinutes(log) {
@@ -213,51 +210,35 @@ function escapeAttr(text) {
 
 // ---- Timers ----------------------------------------------------------------
 //
-// Each block tracks total elapsed seconds for the day (log.blocks[key].secondsSpent),
-// persisted and capped at that block's nominal duration. The countdown widget
-// (timers[key]) represents the current attempt only: remaining/total drive the
-// display, while lastBankRemaining marks the last point its progress was
-// credited to secondsSpent. Progress is credited ("banked") on every tick while
-// running, and on pause/reset/complete/restore, so:
-//   - stopping partway (pause, reset, closing the app) still counts that
-//     elapsed time toward the day's total and the cumulative stats
-//   - a block is marked done automatically once secondsSpent reaches the
-//     block's full duration, whether that happens in one continuous run or
-//     across several interrupted attempts
-//
-// The end timestamp (not a plain per-second decrement) is what's persisted,
-// so remaining time survives page reloads and backgrounding.
+// Each timer tracks elapsed real time since it was last started, counting
+// down while under the block's nominal duration and then continuing to count
+// UP (overtime) past it — the widget never auto-stops. Study time is only
+// ever written to the day's log when the End button is pressed; Start,
+// Pause, and Reset only affect the widget itself:
+//   - Pause freezes the elapsed time so Start can resume it later
+//   - Reset discards the widget's elapsed time and returns it to a fresh
+//     countdown, without recording anything
+//   - End records the widget's current elapsed time into that day's total
+//     (adding to whatever was already recorded today for that block), then
+//     resets the widget for next time
+// Done is a separate, independent "this item is finished" marker (used for
+// the sessions-completed count) and never affects the time count.
 
 const TIMER_STORAGE_KEY = 'englishLearningTrackerTimers';
 
-function bankProgress(blockKey) {
-    const timer = timers[blockKey];
-    const delta = timer.lastBankRemaining - timer.remaining;
-    if (delta <= 0) return;
-    timer.lastBankRemaining = timer.remaining;
-    const log = ensureLog(getDateKey(currentDate));
-    const block = log.blocks[blockKey];
-    const newSeconds = (block.secondsSpent || 0) + delta;
-    block.secondsSpent = newSeconds;
-    if (newSeconds >= timer.total) block.done = true;
-    saveState();
+function computeElapsed(timer) {
+    return timer.elapsedBase + (timer.running ? (Date.now() - timer.runStart) / 1000 : 0);
 }
 
 function freshTimer(blockKey) {
     const total = BLOCK_CONFIG[blockKey].minutes * 60;
-    return { remaining: total, total, endTime: null, interval: null, running: false, lastBankRemaining: total };
+    return { total, elapsedBase: 0, running: false, runStart: null, interval: null, overtimeNotified: false };
 }
 
 function initTimersForDate() {
     BLOCK_ORDER.forEach(key => {
         const timer = timers[key];
-        if (timer) {
-            if (timer.running && timer.endTime) {
-                timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
-                bankProgress(key);
-            }
-            if (timer.interval) clearInterval(timer.interval);
-        }
+        if (timer && timer.interval) clearInterval(timer.interval);
         timers[key] = freshTimer(key);
     });
     localStorage.removeItem(TIMER_STORAGE_KEY);
@@ -270,9 +251,9 @@ function persistTimers() {
         snapshot.timers[key] = {
             total: t.total,
             running: t.running,
-            endTime: t.endTime,
-            remaining: t.remaining,
-            lastBankRemaining: t.lastBankRemaining
+            elapsedBase: t.elapsedBase,
+            runStart: t.runStart,
+            overtimeNotified: t.overtimeNotified
         };
     });
     localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(snapshot));
@@ -301,27 +282,17 @@ function restoreTimers() {
             timers[key] = freshTimer(key);
             return;
         }
-        let remaining = saved.remaining;
         const wasRunning = saved.running;
-        if (wasRunning && saved.endTime) {
-            remaining = Math.max(0, Math.round((saved.endTime - Date.now()) / 1000));
-        }
+        const elapsed = saved.elapsedBase + (wasRunning && saved.runStart ? (Date.now() - saved.runStart) / 1000 : 0);
         timers[key] = {
-            remaining,
             total,
-            endTime: null,
-            interval: null,
+            elapsedBase: elapsed,
             running: false,
-            lastBankRemaining: saved.lastBankRemaining != null ? saved.lastBankRemaining : total
+            runStart: null,
+            interval: null,
+            overtimeNotified: !!saved.overtimeNotified || elapsed >= total
         };
-        // Credit whatever elapsed while the app was closed or backgrounded.
-        bankProgress(key);
-
-        const log = ensureLog(todayKey);
-        if (wasRunning && timers[key].remaining > 0 && !log.blocks[key].done) {
-            timers[key].endTime = Date.now() + timers[key].remaining * 1000;
-            startTicking(key);
-        }
+        if (wasRunning) startTicking(key);
     });
 }
 
@@ -338,22 +309,25 @@ function checkDateRollover() {
 function startTicking(blockKey) {
     const timer = timers[blockKey];
     timer.running = true;
+    timer.runStart = Date.now();
     timer.interval = setInterval(() => {
-        timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
-        bankProgress(blockKey);
-        updateTimerDisplay(blockKey);
-        updateProgressSummaryDisplay();
-        const log = ensureLog(getDateKey(currentDate));
-        if (timer.remaining <= 0 || log.blocks[blockKey].done) {
-            completeBlockTimer(blockKey);
+        const elapsed = computeElapsed(timer);
+        if (elapsed >= timer.total && !timer.overtimeNotified) {
+            timer.overtimeNotified = true;
+            playNotificationSound();
+            if (Notification.permission === 'granted') {
+                new Notification("Time's up!", {
+                    body: `${BLOCK_CONFIG[blockKey].title} is now counting overtime`
+                });
+            }
         }
+        updateTimerDisplay(blockKey);
     }, 1000);
 }
 
 function startBlockTimer(blockKey) {
     const timer = timers[blockKey];
-    if (timer.running || timer.remaining <= 0) return;
-    timer.endTime = Date.now() + timer.remaining * 1000;
+    if (timer.running) return;
     startTicking(blockKey);
     persistTimers();
     updateTimerButtons(blockKey);
@@ -362,60 +336,48 @@ function startBlockTimer(blockKey) {
 function pauseBlockTimer(blockKey) {
     const timer = timers[blockKey];
     if (!timer.running) return;
+    timer.elapsedBase = computeElapsed(timer);
     clearInterval(timer.interval);
     timer.interval = null;
     timer.running = false;
-    timer.remaining = Math.max(0, Math.round((timer.endTime - Date.now()) / 1000));
-    timer.endTime = null;
-    bankProgress(blockKey);
+    timer.runStart = null;
     persistTimers();
-    renderToday();
+    updateTimerDisplay(blockKey);
+    updateTimerButtons(blockKey);
 }
 
 function resetBlockTimer(blockKey) {
-    // Reset is a deliberate wipe: unlike pausing or closing the app (which bank
-    // whatever time has elapsed so far), pressing Reset discards this block's
-    // recorded time for the day entirely, clearing it from the day's total and
-    // history too.
     const timer = timers[blockKey];
     clearInterval(timer.interval);
     timer.interval = null;
     timer.running = false;
-    timer.endTime = null;
-    timer.remaining = timer.total;
-    timer.lastBankRemaining = timer.total;
+    timer.runStart = null;
+    timer.elapsedBase = 0;
+    timer.overtimeNotified = false;
     persistTimers();
-
-    const log = ensureLog(getDateKey(currentDate));
-    log.blocks[blockKey].secondsSpent = 0;
-    log.blocks[blockKey].done = false;
-    saveState();
-
-    renderToday();
+    updateTimerDisplay(blockKey);
+    updateTimerButtons(blockKey);
 }
 
-function completeBlockTimer(blockKey) {
+function endBlockTimer(blockKey) {
     const timer = timers[blockKey];
+    const elapsed = Math.round(computeElapsed(timer));
     clearInterval(timer.interval);
     timer.interval = null;
     timer.running = false;
-    timer.endTime = null;
-    timer.remaining = timer.total;
-    timer.lastBankRemaining = timer.total;
+    timer.runStart = null;
+    timer.elapsedBase = 0;
+    timer.overtimeNotified = false;
     persistTimers();
+    updateTimerDisplay(blockKey);
+    updateTimerButtons(blockKey);
 
-    const log = ensureLog(getDateKey(currentDate));
-    log.blocks[blockKey].secondsSpent = Math.max(timer.total, log.blocks[blockKey].secondsSpent || 0);
-    log.blocks[blockKey].done = true;
-    saveState();
-
-    playNotificationSound();
-    if (Notification.permission === 'granted') {
-        new Notification('Study session complete!', {
-            body: `${BLOCK_CONFIG[blockKey].title} has finished`
-        });
+    if (elapsed > 0) {
+        const log = ensureLog(getDateKey(currentDate));
+        log.blocks[blockKey].secondsSpent = (log.blocks[blockKey].secondsSpent || 0) + elapsed;
+        saveState();
     }
-    renderToday();
+    updateProgressSummaryDisplay();
 }
 
 function playNotificationSound() {
@@ -433,13 +395,20 @@ function playNotificationSound() {
 
 function updateTimerDisplay(blockKey) {
     const timer = timers[blockKey];
+    const elapsed = computeElapsed(timer);
+    const isOvertime = elapsed >= timer.total;
     const display = document.getElementById(`display-${blockKey}`);
     const ring = document.getElementById(`ring-${blockKey}`);
-    if (display) display.textContent = formatMMSS(timer.remaining);
+    if (display) {
+        display.textContent = isOvertime ? `+${formatMMSS(elapsed - timer.total)}` : formatMMSS(timer.total - elapsed);
+        display.classList.toggle('overtime', isOvertime);
+    }
     if (ring) {
-        const progress = timer.remaining / timer.total;
+        const remaining = Math.max(0, timer.total - elapsed);
+        const progress = remaining / timer.total;
         ring.style.strokeDasharray = MINI_CIRCUMFERENCE;
         ring.style.strokeDashoffset = MINI_CIRCUMFERENCE * (1 - progress);
+        ring.classList.toggle('overtime', isOvertime);
     }
 }
 
@@ -554,6 +523,7 @@ function renderSessionCard(blockKey, log) {
                     <button class="btn-small btn-primary timer-start" data-block="${blockKey}">Start</button>
                     <button class="btn-small btn-secondary timer-pause" data-block="${blockKey}" disabled>Pause</button>
                     <button class="btn-small btn-danger timer-reset" data-block="${blockKey}">Reset</button>
+                    <button class="btn-small btn-end timer-end" data-block="${blockKey}">End</button>
                 </div>
             </div>
             ${resumeNoteHtml}
@@ -914,6 +884,8 @@ function setupEventListeners() {
         if (pauseBtn) { pauseBlockTimer(pauseBtn.dataset.block); return; }
         const resetBtn = e.target.closest('.timer-reset');
         if (resetBtn) { resetBlockTimer(resetBtn.dataset.block); return; }
+        const endBtn = e.target.closest('.timer-end');
+        if (endBtn) { endBlockTimer(endBtn.dataset.block); return; }
     });
 
     sessionList.addEventListener('change', (e) => {

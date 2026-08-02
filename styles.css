@@ -344,7 +344,11 @@ body {
     stroke: var(--primary-color);
     stroke-width: 8;
     stroke-linecap: round;
-    transition: stroke-dashoffset 0.5s ease;
+    transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
+}
+
+.mini-timer-progress.overtime {
+    stroke: var(--danger-color);
 }
 
 .mini-timer-display {
@@ -355,6 +359,10 @@ body {
     font-size: 0.85rem;
     font-weight: 700;
     font-family: 'Courier New', monospace;
+}
+
+.mini-timer-display.overtime {
+    color: var(--danger-color);
 }
 
 .mini-timer-controls {
@@ -420,6 +428,15 @@ body {
 .btn-danger:hover:not(:disabled) {
     background: var(--danger-color);
     color: #fff8f4;
+}
+
+.btn-end {
+    background: var(--success-color);
+    color: #fff8f4;
+}
+
+.btn-end:hover:not(:disabled) {
+    filter: brightness(0.9);
 }
 
 /* Extra blocks */
