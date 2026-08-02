@@ -590,7 +590,7 @@ function renderSessionCard(blockKey, log) {
 
     const resumeNoteHtml = `
         <div class="extra-block">
-            <p class="extra-label">📍 Resume point for next time</p>
+            <p class="extra-label">📍 Note for tomorrow</p>
             <input type="text" class="phrase-input resume-note-input" data-block="${blockKey}" value="${escapeAttr(getResumeNote(blockKey))}">
         </div>`;
 
