@@ -385,12 +385,20 @@ body {
     font-weight: 600;
 }
 
-.timer-status.running {
-    color: var(--success-color);
+.timer-status.status-start {
+    color: var(--primary-color);
 }
 
-.timer-status.stopped {
-    color: var(--text-muted);
+.timer-status.status-pause {
+    color: var(--secondary-color);
+}
+
+.timer-status.status-reset {
+    color: var(--danger-color);
+}
+
+.timer-status.status-end {
+    color: var(--success-color);
 }
 
 .btn {

@@ -249,7 +249,7 @@ function computeElapsed(timer) {
 
 function freshTimer(blockKey) {
     const total = BLOCK_CONFIG[blockKey].minutes * 60;
-    return { total, elapsedBase: 0, running: false, runStart: null, interval: null, overtimeNotified: false };
+    return { total, elapsedBase: 0, running: false, runStart: null, interval: null, overtimeNotified: false, lastAction: 'reset' };
 }
 
 function initTimersForDate() {
@@ -270,7 +270,8 @@ function persistTimers() {
             running: t.running,
             elapsedBase: t.elapsedBase,
             runStart: t.runStart,
-            overtimeNotified: t.overtimeNotified
+            overtimeNotified: t.overtimeNotified,
+            lastAction: t.lastAction
         };
     });
     localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(snapshot));
@@ -311,7 +312,8 @@ function restoreTimers() {
             running: false,
             runStart: null,
             interval: null,
-            overtimeNotified: !!saved.overtimeNotified || elapsed >= total
+            overtimeNotified: !!saved.overtimeNotified || elapsed >= total,
+            lastAction: typeof saved.lastAction === 'string' ? saved.lastAction : (wasRunning ? 'start' : 'reset')
         };
         if (wasRunning) startTicking(key);
     });
@@ -351,6 +353,7 @@ function startBlockTimer(blockKey) {
     const timer = timers[blockKey];
     if (timer.running) return;
     startTicking(blockKey);
+    timer.lastAction = 'start';
     persistTimers();
     updateTimerButtons(blockKey);
 }
@@ -363,6 +366,7 @@ function pauseBlockTimer(blockKey) {
     timer.interval = null;
     timer.running = false;
     timer.runStart = null;
+    timer.lastAction = 'pause';
     persistTimers();
     updateTimerDisplay(blockKey);
     updateTimerButtons(blockKey);
@@ -376,6 +380,7 @@ function resetBlockTimer(blockKey) {
     timer.runStart = null;
     timer.elapsedBase = 0;
     timer.overtimeNotified = false;
+    timer.lastAction = 'reset';
     persistTimers();
     updateTimerDisplay(blockKey);
     updateTimerButtons(blockKey);
@@ -399,6 +404,7 @@ function endBlockTimer(blockKey) {
     // again later today resumes counting up from here, and End can be
     // pressed again to bank the extra time on top.
     timer.elapsedBase = elapsed;
+    timer.lastAction = 'end';
     persistTimers();
     updateTimerDisplay(blockKey);
     updateTimerButtons(blockKey);
@@ -461,9 +467,9 @@ function updateTimerButtons(blockKey) {
 
     const status = document.getElementById(`status-${blockKey}`);
     if (status) {
-        status.textContent = timer.running ? '● In progress' : '⏸ Stopped';
-        status.classList.toggle('running', timer.running);
-        status.classList.toggle('stopped', !timer.running);
+        const labels = { start: '▶ Start', pause: '❚❚ Pause', reset: '↺ Reset', end: '■ End' };
+        status.textContent = labels[timer.lastAction] || labels.reset;
+        status.className = `timer-status status-${timer.lastAction}`;
     }
 }
 
@@ -588,7 +594,7 @@ function renderSessionCard(blockKey, log) {
                     <span class="mini-timer-display" id="display-${blockKey}">${formatMMSS(cfg.minutes * 60)}</span>
                 </div>
                 <div class="mini-timer-controls">
-                    <span class="timer-status stopped" id="status-${blockKey}">⏸ Stopped</span>
+                    <span class="timer-status status-reset" id="status-${blockKey}">↺ Reset</span>
                     <button class="btn-small btn-primary timer-start" data-block="${blockKey}">Start</button>
                     <button class="btn-small btn-secondary timer-pause btn-pressed" data-block="${blockKey}" disabled>Pause</button>
                     <button class="btn-small btn-danger timer-reset" data-block="${blockKey}">Reset</button>
