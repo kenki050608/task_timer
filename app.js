@@ -518,12 +518,11 @@ function renderSessionCard(blockKey, log) {
         ? `<img src="${escapeAttr(cfg.logoUrl)}" alt="${escapeAttr(cfg.title)}" title="${escapeAttr(cfg.title)}" class="${logoClass}" onerror="handleLogoError(this)">${cfg.logoLabel ? ` ${escapeHtml(cfg.logoLabel)}` : ''}`
         : cfg.title;
 
-    const hasResumeNote = blockKey === 'eigomimi' || blockKey === 'shadowing';
-    const resumeNoteHtml = hasResumeNote ? `
+    const resumeNoteHtml = `
         <div class="extra-block">
             <p class="extra-label">📍 Resume point for next time</p>
-            <input type="text" class="phrase-input resume-note-input" data-block="${blockKey}" placeholder="e.g. Chapter 3, Track 12..." value="${escapeAttr(getResumeNote(blockKey))}">
-        </div>` : '';
+            <input type="text" class="phrase-input resume-note-input" data-block="${blockKey}" value="${escapeAttr(getResumeNote(blockKey))}">
+        </div>`;
 
     return `
         <div class="session-card ${done ? 'done' : ''}" data-block="${blockKey}">
