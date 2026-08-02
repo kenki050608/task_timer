@@ -39,8 +39,8 @@ const BLOCK_CONFIG = {
     },
     journaling: {
         title: 'Journaling',
-        subtitle: 'Write about your day (10 min), then proofread your journal entry (5 min)',
-        minutes: 15,
+        subtitle: 'Write about your day (5 min), then proofread your journal entry (5 min)',
+        minutes: 10,
         logoUrl: 'journaling-logo.png',
         logoLabel: 'Journaling'
     }
