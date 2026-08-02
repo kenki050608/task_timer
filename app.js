@@ -82,12 +82,23 @@ function loadState() {
         if (raw && raw.logs) {
             if (!Array.isArray(raw.vocab)) raw.vocab = [];
             if (!Array.isArray(raw.idioms)) raw.idioms = [];
+            if (!raw.resumeNotes || typeof raw.resumeNotes !== 'object') raw.resumeNotes = {};
             return raw;
         }
     } catch (e) {
         // ignore malformed data and fall back to a fresh state
     }
-    return { logs: {}, vocab: [], idioms: [] };
+    return { logs: {}, vocab: [], idioms: [], resumeNotes: {} };
+}
+
+function getResumeNote(blockKey) {
+    return (state.resumeNotes && state.resumeNotes[blockKey]) || '';
+}
+
+function setResumeNote(blockKey, value) {
+    if (!state.resumeNotes) state.resumeNotes = {};
+    state.resumeNotes[blockKey] = value;
+    saveState();
 }
 
 function saveState() {
@@ -507,6 +518,13 @@ function renderSessionCard(blockKey, log) {
         ? `<img src="${escapeAttr(cfg.logoUrl)}" alt="${escapeAttr(cfg.title)}" title="${escapeAttr(cfg.title)}" class="${logoClass}" onerror="handleLogoError(this)">${cfg.logoLabel ? ` ${escapeHtml(cfg.logoLabel)}` : ''}`
         : cfg.title;
 
+    const hasResumeNote = blockKey === 'eigomimi' || blockKey === 'shadowing';
+    const resumeNoteHtml = hasResumeNote ? `
+        <div class="extra-block">
+            <p class="extra-label">📍 Resume point for next time</p>
+            <input type="text" class="phrase-input resume-note-input" data-block="${blockKey}" placeholder="e.g. Chapter 3, Track 12..." value="${escapeAttr(getResumeNote(blockKey))}">
+        </div>` : '';
+
     return `
         <div class="session-card ${done ? 'done' : ''}" data-block="${blockKey}">
             <div class="session-card-header">
@@ -539,6 +557,7 @@ function renderSessionCard(blockKey, log) {
                     <button class="btn-small btn-danger timer-reset" data-block="${blockKey}">Reset</button>
                 </div>
             </div>
+            ${resumeNoteHtml}
         </div>`;
 }
 
@@ -828,6 +847,7 @@ function importData(file) {
         state = parsed;
         if (!Array.isArray(state.vocab)) state.vocab = [];
         if (!Array.isArray(state.idioms)) state.idioms = [];
+        if (!state.resumeNotes || typeof state.resumeNotes !== 'object') state.resumeNotes = {};
         saveState();
         initTimersForDate();
         renderToday();
@@ -900,6 +920,12 @@ function setupEventListeners() {
     sessionList.addEventListener('change', (e) => {
         if (e.target.classList.contains('done-input')) {
             toggleDone(e.target.dataset.block, e.target.checked);
+        }
+    });
+
+    sessionList.addEventListener('input', (e) => {
+        if (e.target.classList.contains('resume-note-input')) {
+            setResumeNote(e.target.dataset.block, e.target.value);
         }
     });
 
