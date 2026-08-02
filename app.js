@@ -12,14 +12,14 @@ const BLOCK_CONFIG = {
     eigomimi: {
         title: 'Eigo Mimi',
         subtitle: 'Pronunciation warm-up & sound training',
-        minutes: 15,
+        minutes: 20,
         logoUrl: 'eigomimi-logo.png',
         logoLabel: 'Pronunciation'
     },
     studysapuri: {
         title: 'Studysapuri Business',
         subtitle: 'Input, dictation & vocabulary/idiom logging',
-        minutes: 45,
+        minutes: 40,
         logoUrl: 'studysapuri-logo.png',
         logoLabel: 'Input'
     },
