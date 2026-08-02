@@ -379,6 +379,20 @@ body {
     filter: brightness(0.85);
 }
 
+.timer-status {
+    flex: 1 1 100%;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.timer-status.running {
+    color: var(--success-color);
+}
+
+.timer-status.stopped {
+    color: var(--text-muted);
+}
+
 .btn {
     padding: 12px 24px;
     border: none;
