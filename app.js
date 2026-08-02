@@ -6,7 +6,7 @@
 
 const STORAGE_KEY = 'englishLearningTrackerData';
 
-const BLOCK_ORDER = ['eigomimi', 'studysapuri', 'shadowing', 'speak'];
+const BLOCK_ORDER = ['eigomimi', 'studysapuri', 'shadowing', 'speak', 'journaling'];
 
 const BLOCK_CONFIG = {
     eigomimi: {
@@ -36,6 +36,13 @@ const BLOCK_CONFIG = {
         minutes: 30,
         logoUrl: 'speak-logo.png',
         logoLabel: 'Speaking'
+    },
+    journaling: {
+        title: 'Journaling',
+        subtitle: 'Write about your day (10 min), then proofread your journal entry (5 min)',
+        minutes: 15,
+        logoUrl: 'journaling-logo.png',
+        logoLabel: 'Journaling'
     }
 };
 
@@ -64,6 +71,7 @@ const prevDayBtn = document.getElementById('prevDayBtn');
 const nextDayBtn = document.getElementById('nextDayBtn');
 const currentDateLabel = document.getElementById('currentDateLabel');
 const minutesTodayLabel = document.getElementById('minutesTodayLabel');
+const totalMinutesLabel = document.getElementById('totalMinutesLabel');
 const sessionsCompletedLabel = document.getElementById('sessionsCompletedLabel');
 const progressBarFill = document.getElementById('progressBarFill');
 const sessionList = document.getElementById('sessionList');
@@ -112,13 +120,20 @@ function defaultLog() {
     return { blocks };
 }
 
+function fillMissingBlocks(log) {
+    BLOCK_ORDER.forEach(key => {
+        if (!log.blocks[key]) log.blocks[key] = { done: false, secondsSpent: 0 };
+    });
+    return log;
+}
+
 function getLogOrDefault(dateKey) {
-    return state.logs[dateKey] || defaultLog();
+    return fillMissingBlocks(state.logs[dateKey] || defaultLog());
 }
 
 function ensureLog(dateKey) {
     if (!state.logs[dateKey]) state.logs[dateKey] = defaultLog();
-    return state.logs[dateKey];
+    return fillMissingBlocks(state.logs[dateKey]);
 }
 
 function makeId() {
@@ -183,18 +198,22 @@ function calcMinutes(log) {
     return BLOCK_ORDER.reduce((sum, key) => sum + calcBlockSeconds(log, key), 0) / 60;
 }
 
-// Like calcMinutes, but for today reads each block's live elapsed time
-// straight off its timer (which End keeps in sync with the log) instead
-// of the log alone, so the total updates in real time while a timer is
-// running or paused, not only after End is pressed.
+// Like calcMinutes, but for today also factors in each block's live
+// elapsed time from its timer, so the total updates in real time while a
+// timer is running or paused, not only after End is pressed. Takes the
+// max of the log's committed value and the timer's live value (rather
+// than trusting the timer alone) so a timer that's out of sync with the
+// log — e.g. after importing a backup — can't make the total appear to
+// drop below what's actually recorded.
 function calcLiveMinutes(log, dateKey) {
     const isToday = dateKey === getDateKey(new Date());
     const totalSeconds = BLOCK_ORDER.reduce((sum, key) => {
+        const committed = calcBlockSeconds(log, key);
         if (isToday && timers[key]) {
             const elapsed = computeElapsed(timers[key]);
-            if (isFinite(elapsed)) return sum + elapsed;
+            if (isFinite(elapsed)) return sum + Math.max(committed, elapsed);
         }
-        return sum + calcBlockSeconds(log, key);
+        return sum + committed;
     }, 0);
     return totalSeconds / 60;
 }
@@ -858,7 +877,7 @@ function renderHistoryTable() {
         return `
             <tr>
                 <td>${formatDateLabel(dateFromKey(dateKey))}</td>
-                <td>${completed} / 4</td>
+                <td>${completed} / ${BLOCK_ORDER.length}</td>
                 <td>${formatMinutesValue(minutes)} min</td>
                 <td>${wordCount}</td>
             </tr>`;
@@ -1034,6 +1053,7 @@ function init() {
             navigator.serviceWorker.register('sw.js').catch(() => {});
         });
     }
+    if (totalMinutesLabel) totalMinutesLabel.textContent = `/ ${TOTAL_MINUTES} min`;
     restoreTimers();
     setupEventListeners();
     renderToday();
