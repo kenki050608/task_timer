@@ -452,6 +452,13 @@ function updateTimerButtons(blockKey) {
     const pauseBtn = card.querySelector('.timer-pause');
     if (startBtn) startBtn.disabled = timer.running;
     if (pauseBtn) pauseBtn.disabled = !timer.running;
+
+    const status = document.getElementById(`status-${blockKey}`);
+    if (status) {
+        status.textContent = timer.running ? '● In progress' : '⏸ Stopped';
+        status.classList.toggle('running', timer.running);
+        status.classList.toggle('stopped', !timer.running);
+    }
 }
 
 function syncAllTimerDisplays() {
@@ -575,6 +582,7 @@ function renderSessionCard(blockKey, log) {
                     <span class="mini-timer-display" id="display-${blockKey}">${formatMMSS(cfg.minutes * 60)}</span>
                 </div>
                 <div class="mini-timer-controls">
+                    <span class="timer-status stopped" id="status-${blockKey}">⏸ Stopped</span>
                     <button class="btn-small btn-primary timer-start" data-block="${blockKey}">Start</button>
                     <button class="btn-small btn-secondary timer-pause" data-block="${blockKey}" disabled>Pause</button>
                     <button class="btn-small btn-danger timer-reset" data-block="${blockKey}">Reset</button>
