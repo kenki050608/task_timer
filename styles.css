@@ -385,6 +385,10 @@ body {
     font-weight: 600;
 }
 
+.timer-status.status-idle {
+    color: var(--text-muted);
+}
+
 .timer-status.status-start {
     color: var(--primary-color);
 }

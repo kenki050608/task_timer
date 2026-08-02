@@ -269,7 +269,7 @@ function computeElapsed(timer) {
 
 function freshTimer(blockKey) {
     const total = BLOCK_CONFIG[blockKey].minutes * 60;
-    return { total, elapsedBase: 0, running: false, runStart: null, interval: null, overtimeNotified: false, lastAction: 'reset' };
+    return { total, elapsedBase: 0, running: false, runStart: null, interval: null, overtimeNotified: false, lastAction: 'idle' };
 }
 
 function initTimersForDate() {
@@ -333,7 +333,7 @@ function restoreTimers() {
             runStart: null,
             interval: null,
             overtimeNotified: !!saved.overtimeNotified || elapsed >= total,
-            lastAction: typeof saved.lastAction === 'string' ? saved.lastAction : (wasRunning ? 'start' : 'reset')
+            lastAction: typeof saved.lastAction === 'string' ? saved.lastAction : (wasRunning ? 'start' : 'idle')
         };
         if (wasRunning) startTicking(key);
     });
@@ -494,8 +494,8 @@ function updateTimerButtons(blockKey) {
 
     const status = document.getElementById(`status-${blockKey}`);
     if (status) {
-        const labels = { start: '▶ Start', pause: '❚❚ Pause', reset: '↺ Reset', end: '■ End' };
-        status.textContent = labels[timer.lastAction] || labels.reset;
+        const labels = { idle: 'Before start', start: '▶ Start', pause: '❚❚ Pause', reset: '↺ Reset', end: '■ End' };
+        status.textContent = labels[timer.lastAction] || labels.idle;
         status.className = `timer-status status-${timer.lastAction}`;
     }
 }
@@ -621,7 +621,7 @@ function renderSessionCard(blockKey, log) {
                     <span class="mini-timer-display" id="display-${blockKey}">${formatMMSS(cfg.minutes * 60)}</span>
                 </div>
                 <div class="mini-timer-controls">
-                    <span class="timer-status status-reset" id="status-${blockKey}">↺ Reset</span>
+                    <span class="timer-status status-idle" id="status-${blockKey}">Before start</span>
                     <button class="btn-small btn-primary timer-start" data-block="${blockKey}">Start</button>
                     <button class="btn-small btn-secondary timer-pause btn-pressed" data-block="${blockKey}" disabled>Pause</button>
                     <button class="btn-small btn-danger timer-reset" data-block="${blockKey}">Reset</button>
