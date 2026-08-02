@@ -57,9 +57,8 @@ const MINI_CIRCUMFERENCE = 2 * Math.PI * 34;
 
 // State
 let state = loadState();
-let currentDate = startOfDay(new Date());
+let currentDate = dateFromKey(state.activeDay);
 let currentTab = 'today';
-let trackedTodayKey = getDateKey(new Date());
 const timers = {};
 const quizState = { vocab: null, idioms: null };
 const editingEntry = { vocab: null, idioms: null };
@@ -69,6 +68,7 @@ const tabBtns = document.querySelectorAll('.tab-btn');
 const views = document.querySelectorAll('.view');
 const prevDayBtn = document.getElementById('prevDayBtn');
 const nextDayBtn = document.getElementById('nextDayBtn');
+const startNewDayBtn = document.getElementById('startNewDayBtn');
 const currentDateLabel = document.getElementById('currentDateLabel');
 const minutesTodayLabel = document.getElementById('minutesTodayLabel');
 const totalMinutesLabel = document.getElementById('totalMinutesLabel');
@@ -92,12 +92,13 @@ function loadState() {
             if (!Array.isArray(raw.vocab)) raw.vocab = [];
             if (!Array.isArray(raw.idioms)) raw.idioms = [];
             if (!raw.resumeNotes || typeof raw.resumeNotes !== 'object') raw.resumeNotes = {};
+            if (typeof raw.activeDay !== 'string') raw.activeDay = getDateKey(new Date());
             return raw;
         }
     } catch (e) {
         // ignore malformed data and fall back to a fresh state
     }
-    return { logs: {}, vocab: [], idioms: [], resumeNotes: {} };
+    return { logs: {}, vocab: [], idioms: [], resumeNotes: {}, activeDay: getDateKey(new Date()) };
 }
 
 function getResumeNote(blockKey) {
@@ -206,7 +207,7 @@ function calcMinutes(log) {
 // log — e.g. after importing a backup — can't make the total appear to
 // drop below what's actually recorded.
 function calcLiveMinutes(log, dateKey) {
-    const isToday = dateKey === getDateKey(new Date());
+    const isToday = dateKey === state.activeDay;
     const totalSeconds = BLOCK_ORDER.reduce((sum, key) => {
         const committed = calcBlockSeconds(log, key);
         if (isToday && timers[key]) {
@@ -281,7 +282,7 @@ function initTimersForDate() {
 }
 
 function persistTimers() {
-    const snapshot = { savedDateKey: getDateKey(new Date()), timers: {} };
+    const snapshot = { savedDateKey: state.activeDay, timers: {} };
     BLOCK_ORDER.forEach(key => {
         const t = timers[key];
         snapshot.timers[key] = {
@@ -304,7 +305,7 @@ function restoreTimers() {
         persisted = null;
     }
 
-    const todayKey = getDateKey(new Date());
+    const todayKey = state.activeDay;
     if (!persisted || persisted.savedDateKey !== todayKey) {
         // No saved state, or it belongs to a previous day — start the day fresh.
         BLOCK_ORDER.forEach(key => { timers[key] = freshTimer(key); });
@@ -338,13 +339,20 @@ function restoreTimers() {
     });
 }
 
-function checkDateRollover() {
-    const todayKey = getDateKey(new Date());
-    if (todayKey === trackedTodayKey) return;
-    const wasViewingToday = getDateKey(currentDate) === trackedTodayKey;
-    trackedTodayKey = todayKey;
+// The active study day only advances when the user explicitly presses
+// "Start New Day" (see startNewDay) — it does not follow the real
+// calendar date, since study sessions can happen past midnight.
+function startNewDay() {
+    const anyRunning = BLOCK_ORDER.some(key => timers[key] && timers[key].running);
+    if (anyRunning && !confirm('A timer is still running. Starting a new day will discard its unrecorded elapsed time (anything not yet saved with End). Continue?')) {
+        return;
+    }
+    const next = dateFromKey(state.activeDay);
+    next.setDate(next.getDate() + 1);
+    state.activeDay = getDateKey(next);
+    saveState();
     initTimersForDate();
-    if (wasViewingToday) currentDate = startOfDay(new Date());
+    currentDate = next;
     renderToday();
 }
 
@@ -521,7 +529,7 @@ function toggleDone(blockKey, checked) {
 function addNotebookEntry(type, term, note) {
     const trimmedTerm = (term || '').trim();
     if (!trimmedTerm) return;
-    const entry = { id: makeId(), term: trimmedTerm, note: (note || '').trim(), dateKey: getDateKey(new Date()) };
+    const entry = { id: makeId(), term: trimmedTerm, note: (note || '').trim(), dateKey: state.activeDay };
     state[type].push(entry);
     saveState();
     renderNotebookPages();
@@ -560,8 +568,8 @@ function saveEditNotebookEntry(type, id, term, note) {
 function changeDate(delta) {
     const next = new Date(currentDate);
     next.setDate(next.getDate() + delta);
-    const today = startOfDay(new Date());
-    if (next > today) return;
+    const activeDayDate = dateFromKey(state.activeDay);
+    if (next > activeDayDate) return;
     initTimersForDate();
     currentDate = next;
     renderToday();
@@ -627,11 +635,10 @@ function renderSessionCard(blockKey, log) {
 function renderToday() {
     const dateKey = getDateKey(currentDate);
     const log = getLogOrDefault(dateKey);
-    const today = startOfDay(new Date());
-    const isToday = dateKey === getDateKey(today);
+    const isToday = dateKey === state.activeDay;
 
     currentDateLabel.textContent = formatDateLabel(currentDate) + (isToday ? ' (Today)' : '');
-    nextDayBtn.disabled = currentDate >= today;
+    nextDayBtn.disabled = isToday;
 
     updateProgressSummaryDisplay();
 
@@ -786,7 +793,7 @@ function isLogStudied(log) {
 
 function computeCurrentStreak() {
     let streak = 0;
-    const d = startOfDay(new Date());
+    const d = dateFromKey(state.activeDay);
     while (true) {
         const key = getDateKey(d);
         if (isLogStudied(state.logs[key])) {
@@ -841,7 +848,7 @@ function renderStatsGrid() {
 }
 
 function renderHeatmap() {
-    const today = startOfDay(new Date());
+    const today = dateFromKey(state.activeDay);
     const startMonday = getMonday(today);
     startMonday.setDate(startMonday.getDate() - 11 * 7);
 
@@ -1002,6 +1009,7 @@ function setupEventListeners() {
 
     prevDayBtn.addEventListener('click', () => changeDate(-1));
     nextDayBtn.addEventListener('click', () => changeDate(1));
+    startNewDayBtn.addEventListener('click', startNewDay);
 
     sessionList.addEventListener('click', (e) => {
         const startBtn = e.target.closest('.timer-start');
@@ -1038,7 +1046,7 @@ function setupEventListeners() {
     });
 
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) checkDateRollover();
+        if (!document.hidden) syncAllTimerDisplays();
     });
 }
 
