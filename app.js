@@ -278,12 +278,16 @@ function restoreTimers() {
     BLOCK_ORDER.forEach(key => {
         const saved = persisted.timers[key];
         const total = BLOCK_CONFIG[key].minutes * 60;
-        if (!saved || saved.total !== total) {
+        if (!saved || saved.total !== total || typeof saved.elapsedBase !== 'number' || !isFinite(saved.elapsedBase)) {
             timers[key] = freshTimer(key);
             return;
         }
         const wasRunning = saved.running;
         const elapsed = saved.elapsedBase + (wasRunning && saved.runStart ? (Date.now() - saved.runStart) / 1000 : 0);
+        if (!isFinite(elapsed)) {
+            timers[key] = freshTimer(key);
+            return;
+        }
         timers[key] = {
             total,
             elapsedBase: elapsed,
@@ -357,6 +361,13 @@ function resetBlockTimer(blockKey) {
     persistTimers();
     updateTimerDisplay(blockKey);
     updateTimerButtons(blockKey);
+
+    const log = ensureLog(getDateKey(currentDate));
+    if (log.blocks[blockKey].secondsSpent) {
+        log.blocks[blockKey].secondsSpent = 0;
+        saveState();
+    }
+    updateProgressSummaryDisplay();
 }
 
 function endBlockTimer(blockKey) {
@@ -395,7 +406,8 @@ function playNotificationSound() {
 
 function updateTimerDisplay(blockKey) {
     const timer = timers[blockKey];
-    const elapsed = computeElapsed(timer);
+    const rawElapsed = computeElapsed(timer);
+    const elapsed = isFinite(rawElapsed) ? rawElapsed : 0;
     const isOvertime = elapsed >= timer.total;
     const display = document.getElementById(`display-${blockKey}`);
     const ring = document.getElementById(`ring-${blockKey}`);
