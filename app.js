@@ -55,6 +55,7 @@ let currentTab = 'today';
 let trackedTodayKey = getDateKey(new Date());
 const timers = {};
 const quizState = { vocab: null, idioms: null };
+const editingEntry = { vocab: null, idioms: null };
 
 // DOM Elements
 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -495,6 +496,29 @@ function deleteNotebookEntry(type, id) {
     if (currentTab === 'cumulative') renderCumulative();
 }
 
+function startEditNotebookEntry(type, id) {
+    editingEntry[type] = id;
+    renderNotebookPages();
+}
+
+function cancelEditNotebookEntry(type) {
+    editingEntry[type] = null;
+    renderNotebookPages();
+}
+
+function saveEditNotebookEntry(type, id, term, note) {
+    const trimmedTerm = (term || '').trim();
+    if (!trimmedTerm) return;
+    const entry = (state[type] || []).find(e => e.id === id);
+    if (!entry) return;
+    entry.term = trimmedTerm;
+    entry.note = (note || '').trim();
+    editingEntry[type] = null;
+    saveState();
+    renderNotebookPages();
+    if (currentTab === 'cumulative') renderCumulative();
+}
+
 function changeDate(delta) {
     const next = new Date(currentDate);
     next.setDate(next.getDate() + delta);
@@ -667,10 +691,22 @@ function renderQuizSection(type) {
 // ---- Rendering: Notebooks view -------------------------------------------
 
 function renderNotebookListItem(entry, type, { showDate } = {}) {
+    if (editingEntry[type] === entry.id) {
+        return `
+            <li class="notebook-item notebook-item-editing" data-type="${type}" data-id="${entry.id}">
+                <div class="notebook-edit-row">
+                    <input type="text" class="phrase-input notebook-edit-term-input" value="${escapeAttr(entry.term)}">
+                    <input type="text" class="phrase-input notebook-edit-note-input" value="${escapeAttr(entry.note)}">
+                </div>
+                <button class="btn-small btn-primary notebook-edit-save" data-type="${type}" data-id="${entry.id}">Save</button>
+                <button class="btn-small btn-secondary notebook-edit-cancel" data-type="${type}" data-id="${entry.id}">Cancel</button>
+            </li>`;
+    }
     return `
         <li class="notebook-item" data-type="${type}" data-id="${entry.id}">
             <span class="notebook-term">${escapeHtml(entry.term)}</span>${entry.note ? ` <span class="notebook-note">— ${escapeHtml(entry.note)}</span>` : ''}
             ${showDate ? `<span class="notebook-date">${formatDateLabel(dateFromKey(entry.dateKey))}</span>` : ''}
+            <button class="notebook-edit" data-type="${type}" data-id="${entry.id}" aria-label="Edit">✎</button>
             <button class="notebook-delete" data-type="${type}" data-id="${entry.id}" aria-label="Delete">×</button>
         </li>`;
 }
@@ -868,12 +904,24 @@ function submitNotebookEntry(type) {
     addNotebookEntry(type, termInput.value, noteInput.value);
 }
 
+function submitNotebookEntryEdit(type, id, li) {
+    const termInput = li.querySelector('.notebook-edit-term-input');
+    const noteInput = li.querySelector('.notebook-edit-note-input');
+    saveEditNotebookEntry(type, id, termInput.value, noteInput.value);
+}
+
 function wireNotebookContainer(container) {
     container.addEventListener('click', (e) => {
         const addBtn = e.target.closest('.notebook-add-btn');
         if (addBtn) { submitNotebookEntry(addBtn.dataset.type); return; }
         const delBtn = e.target.closest('.notebook-delete');
         if (delBtn) { deleteNotebookEntry(delBtn.dataset.type, delBtn.dataset.id); return; }
+        const editBtn = e.target.closest('.notebook-edit');
+        if (editBtn) { startEditNotebookEntry(editBtn.dataset.type, editBtn.dataset.id); return; }
+        const saveBtn = e.target.closest('.notebook-edit-save');
+        if (saveBtn) { submitNotebookEntryEdit(saveBtn.dataset.type, saveBtn.dataset.id, saveBtn.closest('.notebook-item')); return; }
+        const cancelBtn = e.target.closest('.notebook-edit-cancel');
+        if (cancelBtn) { cancelEditNotebookEntry(cancelBtn.dataset.type); return; }
         const startBtn = e.target.closest('.quiz-start-btn');
         if (startBtn) { startQuiz(startBtn.dataset.type); return; }
         const tapArea = e.target.closest('.quiz-tap-area');
@@ -886,10 +934,18 @@ function wireNotebookContainer(container) {
 
     container.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
-        const input = e.target.closest('.notebook-term-input, .notebook-note-input');
-        if (!input) return;
-        e.preventDefault();
-        submitNotebookEntry(input.dataset.type);
+        const addInput = e.target.closest('.notebook-term-input, .notebook-note-input');
+        if (addInput) {
+            e.preventDefault();
+            submitNotebookEntry(addInput.dataset.type);
+            return;
+        }
+        const editInput = e.target.closest('.notebook-edit-term-input, .notebook-edit-note-input');
+        if (editInput) {
+            e.preventDefault();
+            const li = editInput.closest('.notebook-item');
+            submitNotebookEntryEdit(li.dataset.type, li.dataset.id, li);
+        }
     });
 }
 

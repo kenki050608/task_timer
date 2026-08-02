@@ -545,6 +545,52 @@ body {
     color: #fff8f4;
 }
 
+.notebook-edit {
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.notebook-item .notebook-date + .notebook-edit {
+    margin-left: 0;
+}
+
+.notebook-edit + .notebook-delete {
+    margin-left: 0;
+}
+
+.notebook-edit:hover {
+    background: var(--primary-soft);
+    color: var(--primary-color);
+}
+
+.notebook-item-editing {
+    align-items: center;
+}
+
+.notebook-edit-row {
+    display: flex;
+    gap: 6px;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+}
+
+.notebook-edit-term-input {
+    flex: 1 1 110px;
+}
+
+.notebook-edit-note-input {
+    flex: 2 1 160px;
+}
+
 .notebook-page {
     display: flex;
     flex-direction: column;
