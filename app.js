@@ -25,9 +25,9 @@ const BLOCK_CONFIG = {
     },
     shadowing: {
         title: 'Shadowing',
-        subtitle: 'Overlap Eigo Mimi’s sound patterns onto Studysapuri audio',
+        subtitle: 'Practice shadowing using YouTube content',
         minutes: 30,
-        logoUrl: 'studysapuri-logo.png',
+        logoUrl: 'youtube-logo.png',
         logoLabel: 'Shadowing'
     },
     speak: {
@@ -182,18 +182,18 @@ function calcMinutes(log) {
     return BLOCK_ORDER.reduce((sum, key) => sum + calcBlockSeconds(log, key), 0) / 60;
 }
 
-// Like calcMinutes, but for today also adds each block's currently
-// in-progress (not-yet-ended) elapsed time, so the total updates live
-// while a timer is running or paused, not only after End is pressed.
+// Like calcMinutes, but for today reads each block's live elapsed time
+// straight off its timer (which End keeps in sync with the log) instead
+// of the log alone, so the total updates in real time while a timer is
+// running or paused, not only after End is pressed.
 function calcLiveMinutes(log, dateKey) {
     const isToday = dateKey === getDateKey(new Date());
     const totalSeconds = BLOCK_ORDER.reduce((sum, key) => {
-        let seconds = calcBlockSeconds(log, key);
         if (isToday && timers[key]) {
             const elapsed = computeElapsed(timers[key]);
-            if (isFinite(elapsed)) seconds += elapsed;
+            if (isFinite(elapsed)) return sum + elapsed;
         }
-        return sum + seconds;
+        return sum + calcBlockSeconds(log, key);
     }, 0);
     return totalSeconds / 60;
 }
@@ -394,15 +394,17 @@ function endBlockTimer(blockKey) {
     timer.interval = null;
     timer.running = false;
     timer.runStart = null;
-    timer.elapsedBase = 0;
-    timer.overtimeNotified = false;
+    // Keep the elapsed time on display (don't reset to 0) — pressing Start
+    // again later today resumes counting up from here, and End can be
+    // pressed again to bank the extra time on top.
+    timer.elapsedBase = elapsed;
     persistTimers();
     updateTimerDisplay(blockKey);
     updateTimerButtons(blockKey);
 
-    if (elapsed > 0) {
-        const log = ensureLog(getDateKey(currentDate));
-        log.blocks[blockKey].secondsSpent = (log.blocks[blockKey].secondsSpent || 0) + elapsed;
+    const log = ensureLog(getDateKey(currentDate));
+    if ((log.blocks[blockKey].secondsSpent || 0) !== elapsed) {
+        log.blocks[blockKey].secondsSpent = elapsed;
         saveState();
     }
     updateProgressSummaryDisplay();
