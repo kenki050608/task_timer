@@ -14,6 +14,7 @@
     --success-color: #7a8c67;
     --success-soft: rgba(122, 140, 103, 0.12);
     --danger-color: #b3492f;
+    --overtime-color: #1e3a6e;
     --bg-color: #fdfcf9;
     --card-bg: #f6f4ee;
     --card-bg-solid: #fffefb;
@@ -348,7 +349,7 @@ body {
 }
 
 .mini-timer-progress.overtime {
-    stroke: var(--danger-color);
+    stroke: var(--overtime-color);
 }
 
 .mini-timer-display {
@@ -362,7 +363,7 @@ body {
 }
 
 .mini-timer-display.overtime {
-    color: var(--danger-color);
+    color: var(--overtime-color);
 }
 
 .mini-timer-controls {
