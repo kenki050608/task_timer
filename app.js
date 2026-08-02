@@ -182,6 +182,22 @@ function calcMinutes(log) {
     return BLOCK_ORDER.reduce((sum, key) => sum + calcBlockSeconds(log, key), 0) / 60;
 }
 
+// Like calcMinutes, but for today also adds each block's currently
+// in-progress (not-yet-ended) elapsed time, so the total updates live
+// while a timer is running or paused, not only after End is pressed.
+function calcLiveMinutes(log, dateKey) {
+    const isToday = dateKey === getDateKey(new Date());
+    const totalSeconds = BLOCK_ORDER.reduce((sum, key) => {
+        let seconds = calcBlockSeconds(log, key);
+        if (isToday && timers[key]) {
+            const elapsed = computeElapsed(timers[key]);
+            if (isFinite(elapsed)) seconds += elapsed;
+        }
+        return sum + seconds;
+    }, 0);
+    return totalSeconds / 60;
+}
+
 function calcSessionsCompleted(log) {
     return BLOCK_ORDER.filter(key => log.blocks[key].done).length;
 }
@@ -326,6 +342,7 @@ function startTicking(blockKey) {
             }
         }
         updateTimerDisplay(blockKey);
+        updateProgressSummaryDisplay();
     }, 1000);
 }
 
@@ -444,7 +461,7 @@ function syncAllTimerDisplays() {
 function updateProgressSummaryDisplay() {
     const dateKey = getDateKey(currentDate);
     const log = getLogOrDefault(dateKey);
-    const minutes = calcMinutes(log);
+    const minutes = calcLiveMinutes(log, dateKey);
     const completed = calcSessionsCompleted(log);
     minutesTodayLabel.textContent = formatMinutesValue(minutes);
     sessionsCompletedLabel.textContent = `Sessions completed: ${completed} / ${BLOCK_ORDER.length}`;
