@@ -53,7 +53,6 @@ const NOTEBOOK_CONFIG = {
 };
 
 const TOTAL_MINUTES = BLOCK_ORDER.reduce((sum, key) => sum + BLOCK_CONFIG[key].minutes, 0);
-const MINI_CIRCUMFERENCE = 2 * Math.PI * 34;
 
 // State
 let state = loadState();
@@ -469,10 +468,8 @@ function updateTimerDisplay(blockKey) {
         display.classList.toggle('overtime', isOvertime);
     }
     if (ring) {
-        const remaining = Math.max(0, timer.total - elapsed);
-        const progress = remaining / timer.total;
-        ring.style.strokeDasharray = MINI_CIRCUMFERENCE;
-        ring.style.strokeDashoffset = MINI_CIRCUMFERENCE * (1 - progress);
+        const progress = Math.min(1, elapsed / timer.total);
+        ring.style.width = `${progress * 100}%`;
         ring.classList.toggle('overtime', isOvertime);
     }
 }
@@ -613,12 +610,11 @@ function renderSessionCard(blockKey, log) {
                 </div>
             </div>
             <div class="session-timer">
-                <div class="mini-timer">
-                    <svg class="mini-timer-svg" viewBox="0 0 80 80">
-                        <circle class="mini-timer-bg" cx="40" cy="40" r="34"></circle>
-                        <circle class="mini-timer-progress" cx="40" cy="40" r="34" id="ring-${blockKey}"></circle>
-                    </svg>
+                <div class="mini-timer-bar-wrap">
                     <span class="mini-timer-display" id="display-${blockKey}">${formatMMSS(cfg.minutes * 60)}</span>
+                    <div class="mini-timer-bar-track">
+                        <div class="mini-timer-bar-fill" id="ring-${blockKey}"></div>
+                    </div>
                 </div>
                 <div class="mini-timer-controls">
                     <span class="timer-status status-idle" id="status-${blockKey}">Before start</span>

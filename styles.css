@@ -323,43 +323,38 @@ body {
     flex-wrap: wrap;
 }
 
-.mini-timer {
-    position: relative;
-    width: 80px;
-    height: 80px;
+.mini-timer-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 240px;
     flex-shrink: 0;
 }
 
-.mini-timer-svg {
-    transform: rotate(-90deg);
+.mini-timer-bar-track {
     width: 100%;
+    height: 10px;
+    background: var(--card-bg);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.mini-timer-bar-fill {
     height: 100%;
+    width: 0%;
+    background: var(--primary-color);
+    border-radius: 5px;
+    transition: width 0.5s ease, background 0.3s ease;
 }
 
-.mini-timer-bg {
-    fill: none;
-    stroke: var(--card-bg);
-    stroke-width: 8;
-}
-
-.mini-timer-progress {
-    fill: none;
-    stroke: var(--primary-color);
-    stroke-width: 8;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
-}
-
-.mini-timer-progress.overtime {
-    stroke: var(--overtime-color);
+.mini-timer-bar-fill.overtime {
+    background: var(--overtime-color);
 }
 
 .mini-timer-display {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 0.85rem;
+    font-size: 1.1rem;
     font-weight: 700;
     font-family: 'Comfortaa', -apple-system, BlinkMacSystemFont, sans-serif;
     font-variant-numeric: tabular-nums;
