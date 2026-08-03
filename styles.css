@@ -360,7 +360,8 @@ body {
     transform: translate(-50%, -50%);
     font-size: 0.85rem;
     font-weight: 700;
-    font-family: 'Courier New', monospace;
+    font-family: 'Comfortaa', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-variant-numeric: tabular-nums;
 }
 
 .mini-timer-display.overtime {
