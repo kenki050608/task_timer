@@ -371,6 +371,7 @@ body {
 
 .mini-timer-controls {
     display: flex;
+    justify-content: center;
     gap: 8px;
     flex-wrap: wrap;
 }
