@@ -135,6 +135,12 @@ body {
     margin-bottom: 8px;
 }
 
+.date-nav-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
 .btn-icon {
     width: 40px;
     height: 40px;

@@ -68,6 +68,7 @@ const views = document.querySelectorAll('.view');
 const prevDayBtn = document.getElementById('prevDayBtn');
 const nextDayBtn = document.getElementById('nextDayBtn');
 const startNewDayBtn = document.getElementById('startNewDayBtn');
+const goBackDayBtn = document.getElementById('goBackDayBtn');
 const currentDateLabel = document.getElementById('currentDateLabel');
 const minutesTodayLabel = document.getElementById('minutesTodayLabel');
 const totalMinutesLabel = document.getElementById('totalMinutesLabel');
@@ -280,20 +281,31 @@ function initTimersForDate() {
     localStorage.removeItem(TIMER_STORAGE_KEY);
 }
 
+// A fresh timer per block, seeded with whatever elapsed time that day
+// already has recorded (0 if none), so its widget never misrepresents
+// history as blank.
+function buildTimersFromLog(dateKey) {
+    const log = getLogOrDefault(dateKey);
+    const result = {};
+    BLOCK_ORDER.forEach(key => {
+        const snapshot = freshTimer(key);
+        snapshot.elapsedBase = calcBlockSeconds(log, key);
+        snapshot.lastAction = snapshot.elapsedBase > 0 ? 'end' : 'idle';
+        result[key] = snapshot;
+    });
+    return result;
+}
+
 // Builds a frozen (non-ticking) in-memory snapshot of a past day's already
 // recorded elapsed time per block, purely for display while browsing that
 // day — it never touches localStorage, so the active day's real persisted
 // timer state (including a running timer) is left untouched underneath.
 function showFrozenTimersForDate(dateKey) {
-    const log = getLogOrDefault(dateKey);
     BLOCK_ORDER.forEach(key => {
         const timer = timers[key];
         if (timer && timer.interval) clearInterval(timer.interval);
-        const snapshot = freshTimer(key);
-        snapshot.elapsedBase = calcBlockSeconds(log, key);
-        snapshot.lastAction = snapshot.elapsedBase > 0 ? 'end' : 'idle';
-        timers[key] = snapshot;
     });
+    Object.assign(timers, buildTimersFromLog(dateKey));
 }
 
 function persistTimers() {
@@ -370,8 +382,35 @@ function startNewDay() {
     next.setDate(next.getDate() + 1);
     state.activeDay = getDateKey(next);
     saveState();
-    initTimersForDate();
     currentDate = next;
+    BLOCK_ORDER.forEach(key => {
+        const timer = timers[key];
+        if (timer && timer.interval) clearInterval(timer.interval);
+    });
+    Object.assign(timers, buildTimersFromLog(state.activeDay));
+    persistTimers();
+    renderToday();
+}
+
+// Undo an accidental Start New Day: moves the active day back by one,
+// reviving whatever that day already had recorded (if anything) instead
+// of resetting it blank.
+function goBackADay() {
+    const anyRunning = BLOCK_ORDER.some(key => timers[key] && timers[key].running);
+    if (anyRunning && !confirm('A timer is still running. Going back a day will discard its unrecorded elapsed time (anything not yet saved with End). Continue?')) {
+        return;
+    }
+    const prev = dateFromKey(state.activeDay);
+    prev.setDate(prev.getDate() - 1);
+    state.activeDay = getDateKey(prev);
+    saveState();
+    currentDate = prev;
+    BLOCK_ORDER.forEach(key => {
+        const timer = timers[key];
+        if (timer && timer.interval) clearInterval(timer.interval);
+    });
+    Object.assign(timers, buildTimersFromLog(state.activeDay));
+    persistTimers();
     renderToday();
 }
 
@@ -1031,6 +1070,7 @@ function setupEventListeners() {
     prevDayBtn.addEventListener('click', () => changeDate(-1));
     nextDayBtn.addEventListener('click', () => changeDate(1));
     startNewDayBtn.addEventListener('click', startNewDay);
+    goBackDayBtn.addEventListener('click', goBackADay);
 
     sessionList.addEventListener('click', (e) => {
         const startBtn = e.target.closest('.timer-start');
