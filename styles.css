@@ -318,6 +318,7 @@ body {
 .session-timer {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 16px;
     flex-wrap: wrap;
 }
@@ -383,6 +384,7 @@ body {
 
 .timer-status {
     flex: 1 1 100%;
+    text-align: center;
     font-size: 0.8rem;
     font-weight: 700;
 }
@@ -879,9 +881,5 @@ body {
 @media (max-width: 480px) {
     .header h1 {
         font-size: 1.6rem;
-    }
-
-    .session-timer {
-        justify-content: center;
     }
 }
