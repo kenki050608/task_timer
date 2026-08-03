@@ -493,6 +493,8 @@ body {
 }
 
 .phrase-input {
+    width: 100%;
+    box-sizing: border-box;
     padding: 10px 12px;
     border: 1.5px solid var(--border-color);
     border-radius: 10px;
