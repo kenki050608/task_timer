@@ -280,7 +280,27 @@ function initTimersForDate() {
     localStorage.removeItem(TIMER_STORAGE_KEY);
 }
 
+// Builds a frozen (non-ticking) in-memory snapshot of a past day's already
+// recorded elapsed time per block, purely for display while browsing that
+// day — it never touches localStorage, so the active day's real persisted
+// timer state (including a running timer) is left untouched underneath.
+function showFrozenTimersForDate(dateKey) {
+    const log = getLogOrDefault(dateKey);
+    BLOCK_ORDER.forEach(key => {
+        const timer = timers[key];
+        if (timer && timer.interval) clearInterval(timer.interval);
+        const snapshot = freshTimer(key);
+        snapshot.elapsedBase = calcBlockSeconds(log, key);
+        snapshot.lastAction = snapshot.elapsedBase > 0 ? 'end' : 'idle';
+        timers[key] = snapshot;
+    });
+}
+
 function persistTimers() {
+    // Only the active day's timer widget survives a reload — a snapshot taken
+    // while browsing a past day would otherwise overwrite the active day's
+    // real (possibly running) persisted state under the same key.
+    if (getDateKey(currentDate) !== state.activeDay) return;
     const snapshot = { savedDateKey: state.activeDay, timers: {} };
     BLOCK_ORDER.forEach(key => {
         const t = timers[key];
@@ -567,7 +587,12 @@ function changeDate(delta) {
     next.setDate(next.getDate() + delta);
     const activeDayDate = dateFromKey(state.activeDay);
     if (next > activeDayDate) return;
-    initTimersForDate();
+    const nextKey = getDateKey(next);
+    if (nextKey === state.activeDay) {
+        restoreTimers();
+    } else {
+        showFrozenTimersForDate(nextKey);
+    }
     currentDate = next;
     renderToday();
 }
