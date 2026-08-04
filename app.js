@@ -6,40 +6,41 @@
 
 const STORAGE_KEY = 'englishLearningTrackerData';
 
-const BLOCK_ORDER = ['eigomimi', 'studysapuri', 'shadowing', 'speak', 'journaling'];
+const BLOCK_ORDER = ['eigomimi', 'studysapuri', 'shadowing', 'speak', 'writing', 'journaling'];
 
 const BLOCK_CONFIG = {
     eigomimi: {
         title: 'Eigo Mimi',
-        subtitle: 'Pronunciation warm-up & sound training',
         minutes: 20,
         logoUrl: 'eigomimi-logo.png',
         logoLabel: 'Pronunciation'
     },
     studysapuri: {
         title: 'Studysapuri Business',
-        subtitle: 'Input, dictation & vocabulary/idiom logging',
-        minutes: 40,
+        minutes: 30,
         logoUrl: 'studysapuri-logo.png',
         logoLabel: 'Input'
     },
     shadowing: {
         title: 'Shadowing',
-        subtitle: 'Practice shadowing using YouTube content',
         minutes: 30,
         logoUrl: 'youtube-logo.png',
         logoLabel: 'Shadowing'
     },
     speak: {
         title: 'Speak',
-        subtitle: 'Put your vocabulary & idioms into practice via AI conversation',
         minutes: 30,
         logoUrl: 'speak-logo.png',
         logoLabel: 'Speaking'
     },
+    writing: {
+        title: 'Writing',
+        minutes: 10,
+        logoUrl: 'writing-logo.png',
+        logoLabel: 'Writing'
+    },
     journaling: {
         title: 'Journaling',
-        subtitle: 'Write about your day (5 min), then proofread your journal entry (5 min)',
         minutes: 10,
         logoUrl: 'journaling-logo.png',
         logoLabel: 'Journaling'
@@ -643,7 +644,6 @@ function renderSessionCard(blockKey, log) {
     const done = log.blocks[blockKey].done;
     const index = BLOCK_ORDER.indexOf(blockKey) + 1;
 
-    const subtitle = cfg.subtitle;
     const logoClass = cfg.logoLabel ? 'session-logo session-logo-custom' : 'session-logo';
     const titleHtml = cfg.logoUrl
         ? `<img src="${escapeAttr(cfg.logoUrl)}" alt="${escapeAttr(cfg.title)}" title="${escapeAttr(cfg.title)}" class="${logoClass}" onerror="handleLogoError(this)">${cfg.logoLabel ? ` ${escapeHtml(cfg.logoLabel)}` : ''}`
@@ -662,7 +662,6 @@ function renderSessionCard(blockKey, log) {
                     <span class="session-index">${index}</span>
                     <div>
                         <h3>${titleHtml}</h3>
-                        <p class="session-subtitle">${subtitle}</p>
                     </div>
                 </div>
                 <div class="session-done-col">

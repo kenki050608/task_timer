@@ -289,12 +289,6 @@ body {
     vertical-align: middle;
 }
 
-.session-subtitle {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin-top: 2px;
-}
-
 .session-done-col {
     display: flex;
     flex-direction: column;
