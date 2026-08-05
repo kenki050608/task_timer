@@ -117,6 +117,7 @@ function defaultLog() {
 }
 
 function fillMissingBlocks(log) {
+    if (!log.blocks) log.blocks = {};
     BLOCK_ORDER.forEach(key => {
         if (!log.blocks[key]) log.blocks[key] = { done: false, secondsSpent: 0 };
     });
@@ -190,7 +191,7 @@ function calcBlockSeconds(log, blockKey) {
     // A block added after this log was created won't have an entry — treat as 0
     // rather than throwing (this reads state.logs directly in a few places,
     // ahead of fillMissingBlocks).
-    return (log.blocks[blockKey] && log.blocks[blockKey].secondsSpent) || 0;
+    return (log.blocks && log.blocks[blockKey] && log.blocks[blockKey].secondsSpent) || 0;
 }
 
 function calcMinutes(log) {
@@ -218,7 +219,7 @@ function calcLiveMinutes(log, dateKey) {
 }
 
 function calcSessionsCompleted(log) {
-    return BLOCK_ORDER.filter(key => log.blocks[key] && log.blocks[key].done).length;
+    return log.blocks ? BLOCK_ORDER.filter(key => log.blocks[key] && log.blocks[key].done).length : 0;
 }
 
 function getDayEntries(dateKey, type) {
@@ -844,7 +845,7 @@ function renderNotebookPages() {
 // ---- Rendering: Cumulative view -----------------------------------------
 
 function isLogStudied(log) {
-    return log && BLOCK_ORDER.some(key => log.blocks[key] && log.blocks[key].done);
+    return !!(log && log.blocks && BLOCK_ORDER.some(key => log.blocks[key] && log.blocks[key].done));
 }
 
 function computeCurrentStreak() {
