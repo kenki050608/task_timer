@@ -6,7 +6,7 @@
 
 const STORAGE_KEY = 'englishLearningTrackerData';
 
-const BLOCK_ORDER = ['eigomimi', 'studysapuri', 'shadowing', 'writing'];
+const BLOCK_ORDER = ['eigomimi', 'studysapuri', 'shadowing', 'speaking', 'writing'];
 
 const BLOCK_CONFIG = {
     eigomimi: {
@@ -26,6 +26,12 @@ const BLOCK_CONFIG = {
         minutes: 30,
         logoUrl: 'youtube-logo.png',
         logoLabel: 'Shadowing'
+    },
+    speaking: {
+        title: 'Speaking',
+        minutes: 30,
+        logoUrl: 'gemini-logo.png',
+        logoLabel: 'Speaking'
     },
     writing: {
         title: 'Writing',
