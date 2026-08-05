@@ -851,6 +851,12 @@ function isLogStudied(log) {
 function computeCurrentStreak() {
     let streak = 0;
     const d = dateFromKey(state.activeDay);
+    // If today's log has nothing done yet, don't let that alone zero out the
+    // streak — start counting from yesterday so an ongoing streak still
+    // shows as alive before today's session happens.
+    if (!isLogStudied(state.logs[getDateKey(d)])) {
+        d.setDate(d.getDate() - 1);
+    }
     while (true) {
         const key = getDateKey(d);
         if (isLogStudied(state.logs[key])) {
