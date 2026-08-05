@@ -917,7 +917,10 @@ function renderHeatmap() {
             const dateKey = getDateKey(date);
             const log = state.logs[dateKey];
             const completed = log ? calcSessionsCompleted(log) : 0;
-            cells += `<div class="heatmap-cell level-${completed}" title="${formatDateLabel(date)}: ${completed}/4 sessions"></div>`;
+            // Normalize to the fixed level-0..level-4 CSS scale regardless of
+            // how many blocks currently exist in BLOCK_ORDER.
+            const level = completed === 0 ? 0 : Math.min(4, Math.ceil((completed / BLOCK_ORDER.length) * 4));
+            cells += `<div class="heatmap-cell level-${level}" title="${formatDateLabel(date)}: ${completed}/${BLOCK_ORDER.length} sessions"></div>`;
         }
     }
     heatmap.innerHTML = cells;
