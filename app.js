@@ -30,7 +30,7 @@ const BLOCK_CONFIG = {
     speaking: {
         title: 'Speaking',
         minutes: 30,
-        logoUrl: 'gemini-logo.png',
+        logoUrl: 'supiful-logo.png',
         logoLabel: 'Speaking'
     },
     writing: {
