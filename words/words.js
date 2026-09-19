@@ -24,8 +24,8 @@ const SCOPE_LABELS = {
 
 const MODE_LABELS = {
     flash: 'フラッシュカード',
-    en2ja: '英→日 4択',
-    ja2en: '日→英 4択',
+    en2ja: '英→日（意味を答える）',
+    ja2en: '日→英（英語を答える）',
     cloze: '例文穴埋め',
     mix: 'ミックス'
 };
@@ -55,7 +55,7 @@ const setup = {
 function defaultState() {
     return {
         version: 1,
-        settings: { goal: 20, rate: 0.9, autoSpeak: true },
+        settings: { goal: 20, rate: 0.9, autoSpeak: true, inputMode: 'voice' },
         words: {},
         daily: {}
     };
@@ -81,6 +81,9 @@ function normalizeState(raw, base) {
         if (Number.isFinite(goal) && goal >= 1) next.settings.goal = Math.min(200, Math.round(goal));
         if (Number.isFinite(rate) && rate > 0) next.settings.rate = Math.min(2, Math.max(0.5, rate));
         next.settings.autoSpeak = raw.settings.autoSpeak !== false;
+        if (raw.settings.inputMode === 'text' || raw.settings.inputMode === 'voice') {
+            next.settings.inputMode = raw.settings.inputMode;
+        }
     }
     if (raw.words && typeof raw.words === 'object') {
         Object.keys(raw.words).forEach((key) => {
@@ -277,22 +280,181 @@ function shuffle(arr) {
     return arr;
 }
 
-function pickChoices(word, key) {
-    const sameCat = WORDS.filter((w) => w.cat === word.cat && w.n !== word.n && w[key] !== word[key]);
-    const others = WORDS.filter((w) => w.cat !== word.cat && w.n !== word.n && w[key] !== word[key]);
-    const picked = [];
-    const used = new Set([word[key]]);
-    const take = (list) => {
-        shuffle(list.slice()).forEach((w) => {
-            if (picked.length >= 3 || used.has(w[key])) return;
-            used.add(w[key]);
-            picked.push(w);
-        });
-    };
-    take(sameCat);
-    if (picked.length < 3) take(others);
-    return shuffle(picked.map((w) => w[key]).concat([word[key]]));
+// ==========================================================================
+// 答え合わせ
+// 入力式（テキスト／音声）なので、表記ゆれと聞き取りのゆれを許容して
+// 判定する。判定が厳しすぎたときのために、結果画面から「やっぱり正解に
+// する」で自己申告もできる。
+// ==========================================================================
+
+function normalizeEn(text) {
+    return String(text).toLowerCase().replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
+
+function normalizeJa(text) {
+    return String(text)
+        .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+        .replace(/[\s\u3000]/g, '')
+        .replace(/[、。，．,.!！?？「」『』（）()・…~〜\-ー]/g, '')
+        .toLowerCase();
+}
+
+function levenshtein(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i += 1) {
+        const row = [i];
+        for (let j = 1; j <= b.length; j += 1) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            row[j] = Math.min(row[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+        }
+        prev = row;
+    }
+    return prev[b.length];
+}
+
+function similarity(a, b) {
+    if (!a || !b) return 0;
+    return 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+}
+
+function dropLeadingArticle(text) {
+    return text.replace(/^(a|an|the|to) /, '');
+}
+
+// 英語の正解候補。見出し語のほか、例文中の活用形も正解とみなす。
+function englishAnswers(word) {
+    const set = new Set();
+    const add = (text) => {
+        const normalized = normalizeEn(text);
+        if (normalized) set.add(normalized);
+    };
+    add(word.en);
+    const target = blankTarget(word);
+    if (target) add(target);
+    return Array.from(set);
+}
+
+function judgeEnglish(input, word) {
+    const answer = normalizeEn(input);
+    if (!answer) return false;
+    const stripped = dropLeadingArticle(answer);
+    return englishAnswers(word).some((candidate) => {
+        const ref = dropLeadingArticle(candidate);
+        if (candidate === answer || ref === stripped) return true;
+        // 打ち間違いと聞き取りのゆれを1文字ぶんだけ許す。
+        if (ref.length >= 5 && levenshtein(ref, stripped) <= 1) return true;
+        return false;
+    });
+}
+
+// 日本語の正解候補。「草案／下書きする」「総意、合意」のように複数の訳が
+// 入っている見出しは、どれか1つ言えれば正解にする。
+function japaneseAnswers(word) {
+    const parts = word.ja.split(/[／\/、]/).map(normalizeJa).filter(Boolean);
+    return parts.length ? parts : [normalizeJa(word.ja)];
+}
+
+function judgeJapanese(input, word) {
+    const answer = normalizeJa(input);
+    if (!answer || answer.length < 2) return false;
+    return japaneseAnswers(word).some((candidate) => {
+        if (candidate === answer) return true;
+        // 「議題のことです」のように言い足した場合も正解にする。
+        if (candidate.length >= 2 && answer.includes(candidate)) return true;
+        // 「事後に報告する」に対する「報告する」のような短い言い方も許す。
+        if (candidate.includes(answer) && answer.length >= Math.max(2, candidate.length * 0.5)) return true;
+        return similarity(candidate, answer) >= 0.7;
+    });
+}
+
+function judgeAnswer(input, word, mode) {
+    return mode === 'en2ja' ? judgeJapanese(input, word) : judgeEnglish(input, word);
+}
+
+// ==========================================================================
+// 音声入力（Web Speech API）
+// ==========================================================================
+
+const SpeechRecognitionCtor = typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+    : null;
+const recognitionSupported = !!SpeechRecognitionCtor;
+let recognition = null;
+
+function stopListening() {
+    if (!recognition) return;
+    const current = recognition;
+    recognition = null;
+    try {
+        current.onresult = null;
+        current.onerror = null;
+        current.onend = null;
+        current.abort();
+    } catch (err) {
+        /* すでに停止しているときは何もしない */
+    }
+}
+
+// handlers: { onInterim(text), onFinal(alternatives), onError(code), onEnd() }
+function startListening(lang, handlers) {
+    if (!recognitionSupported) {
+        handlers.onError('unsupported');
+        return;
+    }
+    stopListening();
+    if (speechSupported) window.speechSynthesis.cancel();
+    let instance;
+    try {
+        instance = new SpeechRecognitionCtor();
+    } catch (err) {
+        handlers.onError('unsupported');
+        return;
+    }
+    recognition = instance;
+    instance.lang = lang;
+    instance.interimResults = true;
+    instance.maxAlternatives = 4;
+    instance.continuous = false;
+    instance.onresult = (event) => {
+        const result = event.results[event.results.length - 1];
+        if (!result) return;
+        if (!result.isFinal) {
+            handlers.onInterim(result[0] ? result[0].transcript : '');
+            return;
+        }
+        const alternatives = [];
+        for (let i = 0; i < result.length; i += 1) alternatives.push(result[i].transcript);
+        recognition = null;
+        handlers.onFinal(alternatives);
+    };
+    instance.onerror = (event) => {
+        recognition = null;
+        handlers.onError(event.error || 'error');
+    };
+    instance.onend = () => {
+        if (recognition === instance) recognition = null;
+        handlers.onEnd();
+    };
+    try {
+        instance.start();
+    } catch (err) {
+        recognition = null;
+        handlers.onError('error');
+    }
+}
+
+const RECOGNITION_ERRORS = {
+    'not-allowed': 'マイクの使用が許可されていません。端末の設定で許可するか、テキスト入力に切り替えてください。',
+    'service-not-allowed': 'マイクの使用が許可されていません。端末の設定で許可するか、テキスト入力に切り替えてください。',
+    'no-speech': '聞き取れませんでした。もう一度話してください。',
+    'audio-capture': 'マイクが見つかりません。テキスト入力に切り替えてください。',
+    network: '音声認識に接続できません。テキスト入力に切り替えてください。',
+    aborted: '',
+    unsupported: 'この端末のブラウザは音声入力に対応していません。テキスト入力を使ってください。'
+};
 
 // 例文の中から、その単語（活用形を含む）を切り出す。
 function blankTarget(word) {
@@ -316,10 +478,6 @@ function blankTarget(word) {
 
 function escapeRegExp(text) {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function normalizeAnswer(text) {
-    return String(text).toLowerCase().replace(/[^a-z0-9' ]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 // ==========================================================================
@@ -374,6 +532,7 @@ function renderSetup() {
     const mastered = WORDS.filter((w) => statusOf(w.n) === 'mastered').length;
     el('dueSummary').textContent = `復習すべき語 ${dueCount} ／ 未学習 ${newCount} ／ 習得済み ${mastered}`;
 
+    renderInputChips();
     const queue = buildQueue();
     const hint = el('startHint');
     const startBtn = el('startBtn');
@@ -388,6 +547,37 @@ function renderSetup() {
         startBtn.style.opacity = '1';
         hint.textContent = `${SCOPE_LABELS[setup.scope]}／${MODE_LABELS[setup.mode]}／${queue.length}語で出題します。`;
     }
+}
+
+// 解答方法（音声／テキスト）のチップを、設定と端末の対応状況に合わせる。
+function renderInputChips() {
+    const mode = effectiveInputMode();
+    document.querySelectorAll('#inputChips .chip, #settingsInputChips .chip').forEach((chip) => {
+        chip.classList.toggle('active', chip.dataset.input === mode);
+        if (chip.dataset.input === 'voice') chip.disabled = !recognitionSupported;
+    });
+    const hint = el('inputHint');
+    if (!hint) return;
+    if (setup.mode === 'flash') {
+        hint.textContent = 'フラッシュカードは自分で正誤を選ぶので、解答方法は使いません。';
+    } else if (!recognitionSupported) {
+        hint.textContent = 'この端末のブラウザは音声入力に対応していないため、文字入力で出題します。';
+    } else if (mode === 'voice') {
+        hint.textContent = '声に出して答えます。カードの上でいつでも文字入力に切り替えられます。';
+    } else {
+        hint.textContent = '文字で答えます。カードの上でいつでも音声に切り替えられます。';
+    }
+}
+
+function effectiveInputMode() {
+    return recognitionSupported ? state.settings.inputMode : 'text';
+}
+
+function setInputMode(mode) {
+    stopListening();
+    state.settings.inputMode = mode;
+    saveState();
+    renderInputChips();
 }
 
 function startSession() {
@@ -422,6 +612,7 @@ function renderSessionBar() {
 }
 
 function renderCard() {
+    stopListening();
     if (!session || session.index >= session.items.length) {
         finishSession();
         return;
@@ -443,25 +634,32 @@ function renderCard() {
             <div class="card-actions"><button class="btn btn-primary" id="flipBtn">答えを見る</button></div>
         </div>`;
         el('flipBtn').addEventListener('click', () => revealFlash(word));
-    } else if (item.mode === 'en2ja' || item.mode === 'ja2en') {
-        const isEn2Ja = item.mode === 'en2ja';
-        const key = isEn2Ja ? 'ja' : 'en';
-        const choices = pickChoices(word, key);
+    } else if (item.mode === 'en2ja') {
         area.innerHTML = `<div class="qcard">
             ${head}
-            <div class="${isEn2Ja ? 'qword' : 'qword-ja'}">${escapeHtml(isEn2Ja ? word.en : word.ja)}</div>
-            ${isEn2Ja ? `<button class="speak-btn" data-speak="${escapeHtml(word.en)}">🔊 発音</button>` : ''}
-            <div class="qprompt">${isEn2Ja ? '意味として正しいものは？' : '英語はどれ？'}</div>
-            <div class="choices" id="choices"></div>
+            <div class="qword">${escapeHtml(word.en)}</div>
+            <button class="speak-btn" data-speak="${escapeHtml(word.en)}">🔊 発音</button>
+            <div class="qprompt">意味を日本語で答えてください</div>
+            <div class="answer-area" id="answerArea"></div>
         </div>`;
-        const box = el('choices');
-        choices.forEach((text, i) => {
-            const btn = document.createElement('button');
-            btn.className = 'choice';
-            btn.textContent = `${i + 1}. ${text}`;
-            btn.dataset.value = text;
-            btn.addEventListener('click', () => answerChoice(word, btn, text === word[key]));
-            box.appendChild(btn);
+        mountAnswerArea(word, {
+            mode: 'en2ja',
+            lang: 'ja-JP',
+            placeholder: '日本語で入力',
+            micLabel: '🎤 日本語で答える'
+        });
+    } else if (item.mode === 'ja2en') {
+        area.innerHTML = `<div class="qcard">
+            ${head}
+            <div class="qword-ja">${escapeHtml(word.ja)}</div>
+            <div class="qprompt">英語で答えてください</div>
+            <div class="answer-area" id="answerArea"></div>
+        </div>`;
+        mountAnswerArea(word, {
+            mode: 'ja2en',
+            lang: 'en-US',
+            placeholder: '英語で入力',
+            micLabel: '🎤 英語で答える'
         });
     } else {
         const target = blankTarget(word) || word.en;
@@ -470,20 +668,16 @@ function renderCard() {
             ${head}
             <div class="cloze-sentence">${sentence}</div>
             <div class="example-ja">${escapeHtml(word.exJa)}</div>
-            <div class="qprompt">「${escapeHtml(word.ja)}」にあたる英語を入力</div>
-            <input type="text" class="input mt" id="clozeInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="英語を入力">
-            <div class="card-actions">
-                <button class="btn btn-secondary" id="giveUpBtn">わからない</button>
-                <button class="btn btn-primary" id="clozeCheckBtn">答え合わせ</button>
-            </div>
+            <div class="qprompt">「${escapeHtml(word.ja)}」にあたる英語を答えてください</div>
+            <div class="answer-area" id="answerArea"></div>
         </div>`;
-        const input = el('clozeInput');
-        input.focus();
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); checkCloze(word, target); }
+        mountAnswerArea(word, {
+            mode: 'cloze',
+            lang: 'en-US',
+            placeholder: '英語で入力',
+            micLabel: '🎤 英語で答える',
+            target
         });
-        el('clozeCheckBtn').addEventListener('click', () => checkCloze(word, target));
-        el('giveUpBtn').addEventListener('click', () => revealCloze(word, target, false));
     }
 
     const star = el('starBtn');
@@ -526,42 +720,128 @@ function revealFlash(word) {
     actions.appendChild(got);
 }
 
-function answerChoice(word, clickedBtn, isCorrect) {
-    const key = session.items[session.index].mode === 'en2ja' ? 'ja' : 'en';
-    const card = el('cardArea').querySelector('.qcard');
-    card.querySelectorAll('.choice').forEach((btn) => {
-        btn.disabled = true;
-        if (btn.dataset.value === word[key]) btn.classList.add('correct');
+// 解答エリアを組み立てる。音声入力とテキスト入力はその場で切り替えられ、
+// 選んだ方法は設定として次回以降も引き継がれる。
+function mountAnswerArea(word, config) {
+    const area = el('answerArea');
+    const useVoice = state.settings.inputMode === 'voice' && recognitionSupported;
+    area.innerHTML = `
+        <div class="input-switch">
+            <button class="switch-btn ${useVoice ? 'on' : ''}" data-input="voice"${recognitionSupported ? '' : ' disabled'}>🎤 音声</button>
+            <button class="switch-btn ${useVoice ? '' : 'on'}" data-input="text">⌨️ テキスト</button>
+        </div>
+        ${useVoice ? `
+            <button class="mic-btn" id="micBtn">${config.micLabel}</button>
+            <div class="transcript" id="transcript"></div>
+        ` : `
+            <input type="text" class="input" id="answerInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${config.placeholder}" ${config.mode === 'en2ja' ? '' : 'inputmode="latin"'}>
+        `}
+        <div class="card-actions">
+            <button class="btn btn-secondary" id="giveUpBtn">わからない</button>
+            ${useVoice ? '' : '<button class="btn btn-primary" id="checkBtn">答え合わせ</button>'}
+        </div>
+        ${recognitionSupported ? '' : '<p class="hint">この端末では音声入力が使えないため、テキスト入力で表示しています。</p>'}`;
+
+    area.querySelectorAll('[data-input]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            if (btn.disabled) return;
+            stopListening();
+            state.settings.inputMode = btn.dataset.input;
+            saveState();
+            mountAnswerArea(word, config);
+        });
     });
-    if (!isCorrect) clickedBtn.classList.add('wrong');
-    showAnswerBlock(word, isCorrect);
+
+    el('giveUpBtn').addEventListener('click', () => {
+        stopListening();
+        resolveAnswer(word, config, false, '');
+    });
+
+    if (useVoice) {
+        el('micBtn').addEventListener('click', () => listenForAnswer(word, config));
+    } else {
+        const input = el('answerInput');
+        input.focus();
+        input.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            submitTypedAnswer(word, config);
+        });
+        el('checkBtn').addEventListener('click', () => submitTypedAnswer(word, config));
+    }
 }
 
-function checkCloze(word, target) {
-    const input = el('clozeInput');
-    if (!input) return;
-    const answer = normalizeAnswer(input.value);
-    if (!answer) return;
-    const accepted = [normalizeAnswer(target), normalizeAnswer(word.en)];
-    revealCloze(word, target, accepted.includes(answer));
+function submitTypedAnswer(word, config) {
+    const input = el('answerInput');
+    if (!input || !input.value.trim()) return;
+    const value = input.value.trim();
+    resolveAnswer(word, config, judgeAnswer(value, word, config.mode), value);
 }
 
-function revealCloze(word, target, isCorrect) {
+function listenForAnswer(word, config) {
+    const micBtn = el('micBtn');
+    const transcript = el('transcript');
+    if (!micBtn || !transcript) return;
+    micBtn.classList.add('listening');
+    micBtn.textContent = '🎙 聞き取り中…（話し終えると判定します）';
+    transcript.textContent = '';
+    transcript.classList.remove('error');
+
+    startListening(config.lang, {
+        onInterim: (text) => { transcript.textContent = text; },
+        onFinal: (alternatives) => {
+            // 認識候補のどれかが合っていれば正解にする（聞き間違い対策）。
+            const matched = alternatives.find((text) => judgeAnswer(text, word, config.mode));
+            resolveAnswer(word, config, !!matched, matched || alternatives[0] || '');
+        },
+        onError: (code) => {
+            micBtn.classList.remove('listening');
+            micBtn.textContent = config.micLabel;
+            const message = RECOGNITION_ERRORS[code] || '音声を認識できませんでした。もう一度お試しください。';
+            if (message) {
+                transcript.textContent = message;
+                transcript.classList.add('error');
+            }
+        },
+        onEnd: () => {
+            if (!el('micBtn')) return;
+            micBtn.classList.remove('listening');
+            micBtn.textContent = config.micLabel;
+        }
+    });
+}
+
+// 解答を確定して、答えと例文を表示する。
+function resolveAnswer(word, config, isCorrect, heard) {
+    stopListening();
     const card = el('cardArea').querySelector('.qcard');
-    const input = el('clozeInput');
-    if (input) input.disabled = true;
-    const blank = card.querySelector('.blank');
-    if (blank) blank.textContent = ` ${target} `;
-    card.querySelector('.card-actions').remove();
-    showAnswerBlock(word, isCorrect);
+    if (!card) return;
+    if (config.mode === 'cloze') {
+        const blank = card.querySelector('.blank');
+        if (blank) blank.textContent = ` ${config.target} `;
+    }
+    const area = el('answerArea');
+    if (area) area.remove();
+    showAnswerBlock(word, isCorrect, heard);
 }
 
-function showAnswerBlock(word, isCorrect) {
+function showAnswerBlock(word, isCorrect, heard) {
     const card = el('cardArea').querySelector('.qcard');
     const block = document.createElement('div');
     block.className = 'answer-block';
+    const yourAnswer = heard
+        ? `<div class="your-answer">あなたの答え：${escapeHtml(heard)}</div>`
+        : '';
+    // 音声の聞き取りや表記ゆれで不正解になることがあるので、自分で正解に
+    // 直せるようにしておく。
+    const override = !isCorrect
+        ? '<button class="mini-btn override" id="overrideBtn">やっぱり正解にする</button>'
+        : '';
     block.innerHTML = `
-        <div class="verdict ${isCorrect ? 'ok' : 'ng'}">${isCorrect ? '⭕ 正解' : `❌ 正解は「${escapeHtml(word.en)}／${escapeHtml(word.ja)}」`}</div>
+        <div class="verdict ${isCorrect ? 'ok' : 'ng'}">${isCorrect ? '⭕ 正解' : '❌ 不正解'}</div>
+        ${yourAnswer}
+        <div class="answer-ja">${escapeHtml(word.en)}<span class="answer-sep">／</span>${escapeHtml(word.ja)}</div>
+        ${override}
         ${exampleHtml(word)}
         <button class="speak-btn" data-speak="${escapeHtml(word.ex)}">🔊 例文を読む</button>
         <div class="card-actions"><button class="btn btn-primary" id="nextBtn">次へ</button></div>`;
@@ -569,6 +849,8 @@ function showAnswerBlock(word, isCorrect) {
     block.querySelector('[data-speak]').addEventListener('click', (e) => speak(e.currentTarget.dataset.speak));
     el('nextBtn').addEventListener('click', () => grade(word, isCorrect));
     el('nextBtn').focus();
+    const overrideBtn = el('overrideBtn');
+    if (overrideBtn) overrideBtn.addEventListener('click', () => grade(word, true));
     if (state.settings.autoSpeak) speak(word.ex);
 }
 
@@ -610,6 +892,7 @@ function grade(word, isCorrect) {
 }
 
 function quitSession() {
+    stopListening();
     session = null;
     el('studySession').hidden = true;
     el('studyResult').hidden = true;
@@ -657,7 +940,7 @@ function finishSession() {
 // ==========================================================================
 
 function filteredWords() {
-    const query = normalizeAnswer(el('searchInput').value);
+    const query = normalizeEn(el('searchInput').value);
     const rawQuery = el('searchInput').value.trim();
     const cat = el('listCategory').value;
     const status = el('listStatus').value;
@@ -667,7 +950,7 @@ function filteredWords() {
         else if (status === 'starred' && !isStarred(w.n)) return false;
         else if (['new', 'learning', 'mastered'].includes(status) && statusOf(w.n) !== status) return false;
         if (!rawQuery) return true;
-        const haystackEn = normalizeAnswer(`${w.en} ${w.ex}`);
+        const haystackEn = normalizeEn(`${w.en} ${w.ex}`);
         if (query && haystackEn.includes(query)) return true;
         return `${w.ja}${w.exJa}`.includes(rawQuery);
     });
@@ -811,6 +1094,10 @@ function renderSettings() {
     el('rateInput').value = state.settings.rate;
     el('rateValue').textContent = `×${state.settings.rate.toFixed(2)}`;
     el('autoSpeak').checked = state.settings.autoSpeak;
+    renderInputChips();
+    el('voiceHint').textContent = recognitionSupported
+        ? '音声で答えるときは、ブラウザからマイクの使用を許可してください。うまく聞き取れないときは、答え合わせのあとに「やっぱり正解にする」で直せます。'
+        : 'この端末のブラウザは音声入力に対応していません。文字入力で学習してください。';
     el('speechHint').textContent = speechSupported
         ? '端末の音声合成で英語を読み上げます。音量を確認してください。'
         : 'この端末のブラウザは音声読み上げに対応していません。';
@@ -902,6 +1189,14 @@ function init() {
         renderSetup();
     });
 
+    document.querySelectorAll('#inputChips, #settingsInputChips').forEach((row) => {
+        row.addEventListener('click', (e) => {
+            const chip = e.target.closest('.chip');
+            if (!chip || chip.disabled) return;
+            setInputMode(chip.dataset.input);
+        });
+    });
+
     el('startBtn').addEventListener('click', startSession);
     el('quitBtn').addEventListener('click', () => {
         if (session && session.graded.size > 0 && !confirm('学習をやめますか？ ここまでの記録は保存されます。')) return;
@@ -948,13 +1243,12 @@ function init() {
     // キーボード操作（PCでの学習用）
     document.addEventListener('keydown', (e) => {
         if (currentTab !== 'study' || !session) return;
-        const tag = document.activeElement ? document.activeElement.tagName : '';
+        // 入力欄で押されたキーはカード側で処理済みなので、ここでは拾わない
+        // （解答直後は入力欄が消えて activeElement が body に戻るため、
+        // イベントの発生元で判定する）。
+        const tag = e.target && e.target.tagName ? e.target.tagName : '';
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        if (e.key >= '1' && e.key <= '4') {
-            const choices = document.querySelectorAll('.choice:not(:disabled)');
-            const target = choices[Number(e.key) - 1];
-            if (target) { e.preventDefault(); target.click(); }
-        } else if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === 'Enter' || e.key === ' ') {
             const btn = el('nextBtn') || el('flipBtn');
             if (btn) { e.preventDefault(); btn.click(); }
         }
