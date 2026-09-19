@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ビジネス英単語 500</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1b4332">
+    <!-- iPhone でホーム画面に追加したときに、アプリのように全画面で開く -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="英単語500">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" href="icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="words.css">
+</head>
+<body>
+<div class="app">
+    <header class="header">
+        <h1>ビジネス英単語 <span class="header-num">500</span></h1>
+        <p class="subtitle">例文ごと覚える。声でも文字でも答えられる。</p>
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="study">📖 学習</button>
+            <button class="tab-btn" data-tab="list">📋 一覧</button>
+            <button class="tab-btn" data-tab="stats">📊 統計</button>
+            <button class="tab-btn" data-tab="settings">⚙️ 設定</button>
+        </nav>
+    </header>
+
+    <main class="main">
+        <!-- ============ 学習 ============ -->
+        <section id="studyView" class="view active">
+            <div id="studySetup">
+                <div class="card today-card">
+                    <div class="today-top">
+                        <div>
+                            <div class="today-label">今日の学習</div>
+                            <div class="today-count"><span id="todayDone">0</span><span class="today-goal"> / <span id="todayGoal">20</span> 語</span></div>
+                        </div>
+                        <div class="today-streak" id="todayStreak">🔥 0日連続</div>
+                    </div>
+                    <div class="progress-bar-track"><div class="progress-bar-fill" id="todayBar"></div></div>
+                    <div class="today-sub" id="dueSummary"></div>
+                </div>
+
+                <div class="card">
+                    <h3>出題範囲</h3>
+                    <div class="chip-row" id="scopeChips">
+                        <button class="chip active" data-scope="smart">おまかせ復習</button>
+                        <button class="chip" data-scope="new">未学習</button>
+                        <button class="chip" data-scope="weak">苦手</button>
+                        <button class="chip" data-scope="starred">★ マーク</button>
+                        <button class="chip" data-scope="all">全部</button>
+                    </div>
+                    <label class="field-label" for="categorySelect">カテゴリ</label>
+                    <select id="categorySelect" class="select"></select>
+
+                    <h3 class="mt">出題形式</h3>
+                    <div class="chip-row" id="modeChips">
+                        <button class="chip active" data-mode="flash">フラッシュカード</button>
+                        <button class="chip" data-mode="en2ja">英→日（意味を答える）</button>
+                        <button class="chip" data-mode="ja2en">日→英（英語を答える）</button>
+                        <button class="chip" data-mode="cloze">例文穴埋め</button>
+                        <button class="chip" data-mode="mix">ミックス</button>
+                    </div>
+
+                    <h3 class="mt">解答方法</h3>
+                    <div class="chip-row" id="inputChips">
+                        <button class="chip" data-input="voice">🎤 声で答える</button>
+                        <button class="chip" data-input="text">⌨️ 文字で入力</button>
+                    </div>
+                    <p class="hint" id="inputHint"></p>
+
+                    <h3 class="mt">語数</h3>
+                    <div class="chip-row" id="sizeChips">
+                        <button class="chip" data-size="10">10</button>
+                        <button class="chip active" data-size="20">20</button>
+                        <button class="chip" data-size="30">30</button>
+                        <button class="chip" data-size="50">50</button>
+                    </div>
+
+                    <button class="btn btn-primary btn-block mt" id="startBtn">学習を始める</button>
+                    <p class="hint" id="startHint"></p>
+                </div>
+            </div>
+
+            <div id="studySession" hidden>
+                <div class="session-bar">
+                    <button class="btn-icon" id="quitBtn" aria-label="やめる">✕</button>
+                    <div class="session-progress">
+                        <div class="progress-bar-track"><div class="progress-bar-fill" id="sessionBar"></div></div>
+                        <div class="session-counter" id="sessionCounter"></div>
+                    </div>
+                    <div class="session-score" id="sessionScore"></div>
+                </div>
+                <div id="cardArea"></div>
+            </div>
+
+            <div id="studyResult" hidden></div>
+        </section>
+
+        <!-- ============ 一覧 ============ -->
+        <section id="listView" class="view">
+            <div class="card filter-card">
+                <input type="search" id="searchInput" class="input" placeholder="🔍 単語・意味・例文で検索">
+                <div class="filter-row">
+                    <select id="listCategory" class="select"></select>
+                    <select id="listStatus" class="select">
+                        <option value="all">すべての状態</option>
+                        <option value="new">未学習</option>
+                        <option value="learning">学習中</option>
+                        <option value="mastered">習得済み</option>
+                        <option value="weak">苦手</option>
+                        <option value="starred">★ マーク</option>
+                    </select>
+                </div>
+                <div class="list-meta" id="listMeta"></div>
+            </div>
+            <div class="word-list" id="wordList"></div>
+        </section>
+
+        <!-- ============ 統計 ============ -->
+        <section id="statsView" class="view">
+            <div class="stats-grid" id="statsGrid"></div>
+            <div class="card">
+                <h3>直近14日の学習数</h3>
+                <div class="bar-chart" id="dailyChart"></div>
+            </div>
+            <div class="card">
+                <h3>カテゴリ別の習得状況</h3>
+                <div id="categoryProgress"></div>
+            </div>
+            <div class="card">
+                <h3>間違えやすい単語 TOP10</h3>
+                <div id="weakList"></div>
+            </div>
+        </section>
+
+        <!-- ============ 設定 ============ -->
+        <section id="settingsView" class="view">
+            <div class="card">
+                <h3>学習設定</h3>
+                <label class="field-label" for="goalInput">1日の目標語数</label>
+                <input type="number" id="goalInput" class="input" min="5" max="100" step="5">
+                <label class="field-label mt" for="rateInput">読み上げ速度 <span id="rateValue"></span></label>
+                <input type="range" id="rateInput" class="range" min="0.5" max="1.2" step="0.05">
+                <label class="field-label">解答方法</label>
+                <div class="chip-row" id="settingsInputChips">
+                    <button class="chip" data-input="voice">🎤 声で答える</button>
+                    <button class="chip" data-input="text">⌨️ 文字で入力</button>
+                </div>
+                <p class="hint" id="voiceHint"></p>
+                <label class="switch-row">
+                    <input type="checkbox" id="autoSpeak">
+                    <span>正解表示のときに例文を自動で読み上げる</span>
+                </label>
+                <button class="btn btn-secondary btn-block mt" id="speakTestBtn">🔊 読み上げテスト</button>
+                <p class="hint" id="speechHint"></p>
+            </div>
+            <div class="card">
+                <h3>データの書き出し・読み込み</h3>
+                <p class="hint">学習記録はこの端末のブラウザにだけ保存されます。機種変更の前に「書き出し」でファイルを保存し、新しい端末で「読み込み」してください。</p>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" id="exportBtn">📤 書き出し</button>
+                    <button class="btn btn-secondary" id="importBtn">📥 読み込み</button>
+                    <input type="file" id="importFile" accept="application/json" hidden>
+                </div>
+            </div>
+            <div class="card">
+                <h3>リセット</h3>
+                <p class="hint">すべての学習記録を消して最初からやり直します。元に戻せません。</p>
+                <button class="btn btn-danger btn-block" id="resetBtn">学習記録をすべて消す</button>
+            </div>
+            <p class="credit">出典：ビジネス英単語 500（例文つき・実務版）</p>
+        </section>
+    </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script src="words-data.js"></script>
+<script src="words.js"></script>
+</body>
+</html>
