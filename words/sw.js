@@ -1,5 +1,5 @@
-const CACHE_NAME = 'business-words-500-v1';
-const ASSETS = ['./', './index.html', './words.css', './words.js', './words-data.js', './manifest.json'];
+const CACHE_NAME = 'business-words-500-v2';
+const ASSETS = ['./', './index.html', './words.css', './words.js', './words-data.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
